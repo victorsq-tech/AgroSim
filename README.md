@@ -17,7 +17,10 @@ o solo → decidir sobre solo compactado → consultar resultado → voltar ao g
 
 Inclui placeholders para fazenda, trator e implemento; combustível,
 desgaste e produtividade simulados; telemetria e resultado locais em JSONL.
-Os parâmetros são ilustrativos. Não inclui MQTT, economia nem safra completa.
+Inclui uma tela exclusiva do galpão, abastecimento, reparo e deslocamento
+pela estrada. Combustível e desgaste se mantêm entre operações na mesma
+sessão. Os parâmetros são ilustrativos. Não inclui MQTT, economia nem
+safra completa.
 
 O histórico local fica em `Application.persistentDataPath/AgroSim` e não
 é enviado ao GitHub. Ele não restaura o estado do jogo.

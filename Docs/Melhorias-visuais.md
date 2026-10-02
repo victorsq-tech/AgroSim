@@ -1,12 +1,11 @@
-# Melhorias visuais pendentes
+# Melhorias visuais do galpão
 
 ## Galpão — solicitação do usuário
 
-- Criar uma tela exclusiva para o galpão, separada da visão da fazenda/operação.
-- Melhorar o visual do galpão e a apresentação dos equipamentos.
-- Reservar uma área dedicada à manutenção.
-- Planejar a transição entre galpão e operação.
+- Tela exclusiva para o galpão: implementada e aprovada na etapa 02.
+- Áreas de equipamentos e manutenção: implementadas com placeholders.
+- Saída e retorno pela estrada: implementados na etapa 02.
+- Arte final do galpão, ferramentas e equipamentos: pendente.
 
-Esta mudança visual e a funcionalidade de manutenção não fazem parte da
-etapa atual de preparação dos equipamentos. A etapa atual permanece na
-interface com placeholders e deve ser validada pelo usuário antes de avançar.
+A manutenção básica faz parte da etapa 02, autorizada pelo usuário.
+A interface ainda utiliza placeholders; a etapa 02 foi aprovada pelo usuário.

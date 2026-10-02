@@ -26,10 +26,11 @@ namespace AgroSim.Editor
                 operation.ResolveEvent(true); operation.Tick(20f);
                 Require(!operation.Running && operation.Progress==1f,"Adjusted operation must finish.");
                 Require(Mathf.Abs(operation.Fuel-77.5f)<.01f && operation.Productivity==100f,"Adjusted result is incorrect.");
+                operation.Refuel(); operation.Repair();
                 operation.Begin(); operation.Tick(20f); operation.ResolveEvent(false); operation.Tick(20f);
                 Require(Mathf.Abs(operation.Fuel-80.5f)<.01f && operation.Productivity==85f && Mathf.Abs(operation.Wear-8.6f)<.01f,"Continue result is incorrect.");
                 operation.Reset();
-                Require(!operation.Running && !operation.EventPending && operation.Fuel==100f && operation.Progress==0f,"Restart must reset the operation.");
+                Require(!operation.Running && !operation.EventPending && Mathf.Abs(operation.Fuel-80.5f)<.01f && operation.Progress==0f,"Restart must reset progress and preserve machine condition.");
                 Debug.Log("AgroSim VS01 validation PASSED: event pause, both decisions, completion and restart.");
             }
             finally { UnityEngine.Object.DestroyImmediate(host); }

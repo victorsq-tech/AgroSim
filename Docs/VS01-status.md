@@ -22,10 +22,11 @@ resultado e volte ao galpão para repetir o ciclo.
 ## Limites atuais
 
 - Valores de demonstração; sem calibração agronômica.
-- Combustível e desgaste reiniciam a cada operação de demonstração.
+- A etapa 02 preserva combustível e desgaste entre operações na mesma
+  sessão e oferece abastecimento e reparo na tela exclusiva do galpão.
 - O registro local é histórico; não restaura o estado do jogo ao abrir.
 - UI é criada em execução e usa a fonte padrão do Unity.
 - Sem MQTT, economia, múltiplos dias ou safra completa.
 
-Próxima etapa: mover os parâmetros de operação/evento para dados
-configuráveis e integrar a progressão dos dias conforme o desenho do MVP.
+A etapa 02 foi aprovada pelo usuário. A progressão dos dias
+e os parâmetros configuráveis continuam pendentes.
