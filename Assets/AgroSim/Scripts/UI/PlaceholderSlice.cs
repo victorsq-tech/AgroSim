@@ -1,6 +1,7 @@
 using AgroSim.Core;
 using AgroSim.Operations;
 using AgroSim.Data;
+using AgroSim.Tractors;
 
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -12,15 +13,18 @@ namespace AgroSim.UI
     {
         public Transform tractor;
         public GameManager manager;
+        public TractorData tractorData;
         private PlaceholderOperation operation;
         private Font font;
         private UnityEngine.UI.Text status;
         private GameObject garage, eventPanel, resultPanel;
         private UnityEngine.UI.Text result;
         private float travel;
-        private bool tractorSelected, implementSelected;
+        private readonly GaragePreparation preparation = new GaragePreparation();
         private Transform implement;
         private UnityEngine.UI.Button startButton;
+        private UnityEngine.UI.Button implementButton;
+        private UnityEngine.UI.Text equipmentDetails;
         private UnityEngine.UI.Text tractorLabel, implementLabel;
         private readonly LocalOperationLog log = new LocalOperationLog();
         private float sampleTimer;
@@ -43,11 +47,16 @@ namespace AgroSim.UI
             var top = Panel(canvas.transform, "Telemetry", new Vector2(.02f,.8f), new Vector2(.98f,.98f));
             Label(top.transform, "AGROSIM  /  DIA 1 — PREPARO DO SOLO", 24, new Vector2(.03f,.55f), new Vector2(.97f,.95f));
             status = Label(top.transform, "", 19, new Vector2(.03f,.08f), new Vector2(.97f,.55f));
-            garage = Panel(canvas.transform, "Garage", new Vector2(.025f,.04f), new Vector2(.39f,.49f));
-            Label(garage.transform, "GALPÃO · preparar operação", 23, new Vector2(.06f,.79f), new Vector2(.94f,.96f));
-            tractorLabel = Button(garage.transform, "Selecionar TR-01", .57f, () => { tractorSelected = true; UpdateSelection(); });
-            implementLabel = Button(garage.transform, "Acoplar grade aradora", .35f, () => { implementSelected = true; UpdateSelection(); });
-            var startLabel = Button(garage.transform, "Iniciar preparo do solo", .13f, StartOperation);
+            garage = Panel(canvas.transform, "Garage", new Vector2(.025f,.04f), new Vector2(.43f,.75f));
+            Label(garage.transform, "GALPÃO · preparar operação", 23, new Vector2(.06f,.88f), new Vector2(.94f,.98f));
+            equipmentDetails = Label(garage.transform, "", 19, new Vector2(.06f,.47f), new Vector2(.94f,.68f));
+            equipmentDetails.resizeTextForBestFit = true;
+            equipmentDetails.resizeTextMinSize = 15;
+            equipmentDetails.resizeTextMaxSize = 19;
+            tractorLabel = Button(garage.transform, "Selecionar TR-01", .7f, () => { preparation.ToggleTractor(); UpdateSelection(); });
+            implementLabel = Button(garage.transform, "Acoplar grade aradora", .27f, () => { preparation.ToggleImplement(); UpdateSelection(); });
+            implementButton = implementLabel.transform.parent.GetComponent<UnityEngine.UI.Button>();
+            var startLabel = Button(garage.transform, "Iniciar preparo do solo", .06f, StartOperation);
             startButton = startLabel.transform.parent.GetComponent<UnityEngine.UI.Button>();
             eventPanel = Panel(canvas.transform, "AgriculturalEvent", new Vector2(.32f,.24f), new Vector2(.78f,.67f));
             Label(eventPanel.transform, "SOLO COMPACTADO\nA resistência aumentou. Como proceder?", 23, new Vector2(.06f,.59f), new Vector2(.94f,.94f));
@@ -66,7 +75,7 @@ namespace AgroSim.UI
 
         private void StartOperation()
         {
-            if (!tractorSelected || !implementSelected) { status.text = "Selecione o trator e acople o implemento antes de iniciar."; return; }
+            if (!preparation.CanStart || manager.CurrentState != GameState.Garage) return;
             operation.Begin(); travel = 0f;
             log.Begin(); sampleTimer = 0f; Record("started");
             manager.ChangeState(GameState.Traveling);
@@ -127,21 +136,25 @@ namespace AgroSim.UI
             manager.ChangeState(GameState.Garage);
             tractor.position = home;
             garage.SetActive(true); resultPanel.SetActive(false); eventPanel.SetActive(false);
-            tractorSelected = implementSelected = false;
+            preparation.Reset();
             operation.Reset(); UpdateSelection();
         }
         private void UpdateSelection()
         {
-            tractorLabel.text = tractorSelected ? "✓ TR-01 selecionado" : "Selecionar TR-01";
-            implementLabel.text = implementSelected ? "✓ Grade aradora acoplada" : "Acoplar grade aradora";
-            if (implement != null) implement.gameObject.SetActive(implementSelected);
-            startButton.interactable = tractorSelected && implementSelected;
+            tractorLabel.text = preparation.TractorSelected ? "Desmarcar TR-01" : "Selecionar TR-01";
+            implementLabel.text = preparation.ImplementSelected ? "Desacoplar grade aradora" : "Acoplar grade aradora";
+            implementButton.interactable = preparation.TractorSelected;
+            if (implement != null) implement.gameObject.SetActive(preparation.ImplementSelected);
+            startButton.interactable = preparation.CanStart;
+            equipmentDetails.text = preparation.TractorSelected
+                ? $"{(tractorData != null ? tractorData.displayName : "Trator TR-01")}\nTanque: {(tractorData != null ? tractorData.fuelCapacityLiters : 100f):F0} L · disponível: {operation.Fuel:F0} L\nDesgaste: {operation.Wear:F1}%\nGrade aradora · preparo do solo\nDados ilustrativos do protótipo"
+                : "Selecione o trator para ver os dados.\nDepois, acople a grade aradora.\nO início requer os dois equipamentos.";
             UpdateStatus();
         }
         private void UpdateStatus()
         {
             if (manager.CurrentState == GameState.Garage)
-                status.text = $"TR-01: {(tractorSelected ? "selecionado" : "aguardando seleção")}   |   Grade: {(implementSelected ? "acoplada" : "aguardando seleção")}";
+                status.text = $"TR-01: {(preparation.TractorSelected ? "selecionado" : "aguardando seleção")}   |   Grade: {(preparation.ImplementSelected ? "acoplada" : "aguardando seleção")}   |   {(preparation.CanStart ? "Pronto para iniciar" : "Preparação incompleta")}";
             else
             {
                 string phase = manager.CurrentState == GameState.Traveling ? "Indo ao talhão" : manager.CurrentState == GameState.Returning ? "Voltando ao galpão" : manager.CurrentState == GameState.Result ? "Concluído" : operation.EventPending ? "Aguardando decisão" : "Preparando o solo";
