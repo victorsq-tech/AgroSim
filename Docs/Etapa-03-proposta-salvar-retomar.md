@@ -1,6 +1,6 @@
 # Proposta da etapa 03 — salvar e retomar o trator
 
-Status: proposta para revisão do usuário; implementação não iniciada.
+Status: implementada e aprovada. Resultado e verificação em Etapa-03-save.md.
 
 ## Objetivo
 
@@ -28,7 +28,7 @@ Esta etapa não terá nuvem, MQTT, múltiplos perfis, economia ou safra completa
 
 O ponto salvo será o galpão. Se o jogo for fechado durante uma operação,
 ao abrir novamente ele voltará ao último estado salvo no galpão; não haverá
-retomada no meio do talhão. Essa escolha precisa ser confirmada pelo usuário.
+retomada no meio do talhão. Essa escolha foi confirmada pelo usuário.
 
 ## Sequência de implementação, após aprovação
 

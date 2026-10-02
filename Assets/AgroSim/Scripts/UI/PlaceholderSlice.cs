@@ -33,6 +33,11 @@ namespace AgroSim.UI
         private UnityEngine.UI.Text tractorLabel, implementLabel;
         private readonly LocalOperationLog log = new LocalOperationLog();
         private float sampleTimer;
+        private SaveGameStore saves;
+        private UnityEngine.UI.Text saveMessage;
+        private UnityEngine.UI.Text saveDate;
+        private GameObject newGamePanel;
+        private bool saveFailed, recovering;
         private readonly Vector3 home = new Vector3(-5f, -1f, 0f);
 
         private void Awake()
@@ -95,16 +100,39 @@ namespace AgroSim.UI
             result.resizeTextMaxSize = 23;
             Button(resultPanel.transform, "Voltar ao galpão", .1f, BeginReturn);
             resultPanel.SetActive(false);
+            saveMessage=Label(garage.transform,"",15,new Vector2(.05f,.755f),new Vector2(.76f,.79f));
+            saveDate=Label(garage.transform,"",18,new Vector2(.05f,.835f),new Vector2(.76f,.875f));
+            var saveTools=Panel(garage.transform,"SaveTools",new Vector2(.79f,.8f),new Vector2(.96f,.96f));
+            var newGameLabel=Button(saveTools.transform,"Novo jogo",.55f,()=>newGamePanel.SetActive(true));
+            Rect(newGameLabel.transform.parent.GetComponent<RectTransform>(),new Vector2(.06f,.52f),new Vector2(.94f,.94f));
+            newGameLabel.fontSize=18;
+            var retryLabel=Button(saveTools.transform,"Tentar salvar",.15f,RetrySave);
+            Rect(retryLabel.transform.parent.GetComponent<RectTransform>(),new Vector2(.06f,.06f),new Vector2(.94f,.48f));
+            retryLabel.fontSize=18;
+            newGamePanel=Panel(canvas.transform,"NewGameConfirmation",Vector2.zero,Vector2.one);
+            var confirmation=Panel(newGamePanel.transform,"ConfirmationDialog",new Vector2(.27f,.29f),new Vector2(.73f,.71f));
+            Label(confirmation.transform,"Iniciar um novo jogo?\nO progresso salvo será reiniciado.\nOs registros de operações serão mantidos.",22,new Vector2(.06f,.58f),new Vector2(.94f,.95f));
+            Button(confirmation.transform,"Cancelar",.32f,()=>newGamePanel.SetActive(false));
+            Button(confirmation.transform,"Confirmar novo jogo",.09f,NewGame);
+            newGamePanel.SetActive(false);
+            saves=new SaveGameStore(System.IO.Path.Combine(Application.persistentDataPath,"AgroSim"));
+            recovering=true;
+            saveFailed=!saves.RecoverAttempt();
+            if(!saveFailed && saves.NeedsInitialSave) saveFailed=!saves.SaveCheckpoint(saves.Fuel,saves.Wear);
+            operation.RestoreMachine(saves.Fuel,saves.Wear);
             ReturnHome();
+            recovering=false;
         }
 
         private void StartOperation()
         {
-            if (!preparation.CanStart || !operation.CanOperate || manager.CurrentState != GameState.Garage) return;
+            if (saveFailed || !preparation.CanStart || !operation.CanOperate || manager.CurrentState != GameState.Garage) return;
+            string id=saves.BeginAttempt();
+            if(id==null) { saveFailed=true; UpdateSelection(); return; }
             startingFuel=operation.Fuel;
             operation.Begin();
             route=new[]{home,new Vector3(-2.7f,-1f,0f),new Vector3(-2.7f,-2f,0f),new Vector3(0f,-2f,0f)}; routeIndex=1;
-            log.Begin(); sampleTimer = 0f; Record("started");
+            log.Begin(id,saves.RunId,saves.CheckpointId,saves.DirectoryPath); sampleTimer = 0f; Record("started");
             manager.ChangeState(GameState.Traveling);
             garage.SetActive(false);
         }
@@ -129,8 +157,9 @@ namespace AgroSim.UI
                 if (!operation.Running)
                 {
                     manager.ChangeState(GameState.Result);
-                    Record("completed");
-                    result.text = $"{(operation.Progress>=1f ? "OPERAÇÃO CONCLUÍDA" : "OPERAÇÃO INTERROMPIDA")}\n\nTalhão 01 · preparo do solo\nCombustível utilizado: {startingFuel-operation.Fuel:F1} L\nDesgaste acumulado: {operation.Wear:F1}%\nProdutividade: {operation.Productivity:F0}%\n\n{(log.LastError ?? "Telemetria e resultado salvos neste PC.")}\nRetorne ao galpão para manutenção.";
+                    Record(operation.Progress>=1f ? "completed" : "interrupted");
+                    if(operation.Progress>=1f) saveFailed=!saves.CompleteAttempt(log.OperationId);
+                    result.text = $"{(operation.Progress>=1f ? "OPERAÇÃO CONCLUÍDA" : "OPERAÇÃO INTERROMPIDA")}\n\nTalhão 01 · preparo do solo\nCombustível utilizado: {startingFuel-operation.Fuel:F1} L\nDesgaste acumulado: {operation.Wear:F1}%\nProdutividade: {operation.Productivity:F0}%\n\n{((saveFailed ? saves.LastError : null) ?? log.LastError ?? "Telemetria e resultado salvos neste PC.")}\nRetorne ao galpão para manutenção.";
                     Debug.Log("AgroSim operation log: " + log.FilePath);
                     resultPanel.SetActive(true);
                 }
@@ -158,6 +187,11 @@ namespace AgroSim.UI
         }
         private void ReturnHome()
         {
+            if(!recovering && saves.PendingAttemptId!=null)
+            {
+                saveFailed=!saves.ConfirmAttempt(log.OperationId,operation.Fuel,operation.Wear);
+                if(!saveFailed) Record("confirmed");
+            }
             manager.ChangeState(GameState.Garage);
             tractor.position = home;
             tractor.rotation=Quaternion.identity;
@@ -171,9 +205,11 @@ namespace AgroSim.UI
             implementLabel.text = preparation.ImplementSelected ? "Desacoplar grade aradora" : "Acoplar grade aradora";
             implementButton.interactable = preparation.TractorSelected;
             if (implement != null) implement.gameObject.SetActive(preparation.ImplementSelected);
-            startButton.interactable = preparation.CanStart && operation.CanOperate;
-            refuelButton.interactable=preparation.TractorSelected && operation.Fuel<99.99f;
-            repairButton.interactable=preparation.TractorSelected && operation.Wear>.001f;
+            startButton.interactable = !saveFailed && preparation.CanStart && operation.CanOperate;
+            refuelButton.interactable=!saveFailed && preparation.TractorSelected && operation.Fuel<99.99f;
+            repairButton.interactable=!saveFailed && preparation.TractorSelected && operation.Wear>.001f;
+            saveMessage.text=saveFailed ? (saves.LastError ?? "Save pendente. Use Tentar salvar antes de sair.") : (saves.LoadMessage ?? "Progresso do galpão salvo neste PC.");
+            saveDate.text="Último save: "+saves.LastSaveDisplay;
             tractorPreview.GetComponent<UnityEngine.UI.Image>().color=preparation.TractorSelected ? new Color(.95f,.75f,.15f) : new Color(.4f,.38f,.25f);
             implementPreview.SetActive(preparation.ImplementSelected);
             maintenanceDetails.text=$"TR-01\nCombustível: {operation.Fuel:F1} / 100 L\nDesgaste acumulado: {operation.Wear:F1}%\n\nServiços gratuitos no protótipo.";
@@ -186,12 +222,36 @@ namespace AgroSim.UI
         private void Refuel()
         {
             if(manager.CurrentState!=GameState.Garage || !preparation.TractorSelected) return;
-            operation.Refuel(); UpdateSelection();
+            if(saveFailed) return;
+            operation.Refuel(); saveFailed=!saves.SaveCheckpoint(operation.Fuel,operation.Wear); UpdateSelection();
         }
         private void Repair()
         {
             if(manager.CurrentState!=GameState.Garage || !preparation.TractorSelected) return;
-            operation.Repair(); UpdateSelection();
+            if(saveFailed) return;
+            operation.Repair(); saveFailed=!saves.SaveCheckpoint(operation.Fuel,operation.Wear); UpdateSelection();
+        }
+        private void RetrySave()
+        {
+            if(manager.CurrentState!=GameState.Garage) return;
+            if(saves.PendingAttemptId!=null && log.OperationId==saves.PendingAttemptId)
+            {
+                saveFailed=!saves.ConfirmAttempt(log.OperationId,operation.Fuel,operation.Wear);
+                if(!saveFailed) Record("confirmed");
+            }
+            else
+            {
+                saveFailed=!saves.RecoverAttempt();
+                if(!saveFailed) saveFailed=!saves.SaveCheckpoint(operation.Fuel,operation.Wear);
+            }
+            UpdateSelection();
+        }
+        private void NewGame()
+        {
+            if(manager.CurrentState!=GameState.Garage) return;
+            saveFailed=!saves.NewGame();
+            if(!saveFailed) { operation.RestoreMachine(saves.Fuel,saves.Wear); newGamePanel.SetActive(false); ReturnHome(); }
+            UpdateSelection();
         }
         private bool FollowRoute()
         {

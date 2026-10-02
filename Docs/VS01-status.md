@@ -24,9 +24,12 @@ resultado e volte ao galpão para repetir o ciclo.
 - Valores de demonstração; sem calibração agronômica.
 - A etapa 02 preserva combustível e desgaste entre operações na mesma
   sessão e oferece abastecimento e reparo na tela exclusiva do galpão.
-- O registro local é histórico; não restaura o estado do jogo ao abrir.
+- A etapa 03 adiciona save separado do histórico: restaura o último estado
+  confirmado no galpão e identifica tentativas interrompidas. Aprovada pelo usuário.
+  O galpão exibe data e hora do último checkpoint no horário local.
 - UI é criada em execução e usa a fonte padrão do Unity.
 - Sem MQTT, economia, múltiplos dias ou safra completa.
 
-A etapa 02 foi aprovada pelo usuário. A progressão dos dias
-e os parâmetros configuráveis continuam pendentes.
+As etapas 02 e 03 foram aprovadas pelo usuário. A etapa 04 proposta adiciona
+saldo e custos de abastecimento/manutenção; veja Etapa-04-proposta-economia.md.
+A progressão dos dias e os parâmetros configuráveis continuam pendentes.
