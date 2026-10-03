@@ -50,7 +50,7 @@ namespace AgroSim.Editor
                 Require(!(bool)call(failing,"BuyRefuel",new object[]{Guid.NewGuid().ToString("N")}),"Write failure must reject purchase.");
                 Require(File.ReadAllText(path)==before && (float)read(failing,"Fuel")==80f && (long)read(failing,"BalanceCents")==482900,"Failed purchase must not apply service or debit.");
                 Directory.Delete(path+".bak");
-                string legacy=json.Replace("\"version\": 2","\"version\": 1");
+                string legacy=json.Replace("\"version\": 3","\"version\": 1");
                 File.WriteAllText(path,legacy); var migrated=open();
                 Require((long)read(migrated,"BalanceCents")==500000 && (float)read(migrated,"Fuel")==100f && (string)read(migrated,"SavedAtUtc")== (string)read(store,"SavedAtUtc"),"Migration must preserve machine/date and set initial credit.");
                 Require((bool)call(migrated,"EnsureSaved",Array.Empty<object>()),"Migration must persist.");

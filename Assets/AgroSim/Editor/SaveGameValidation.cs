@@ -71,7 +71,7 @@ namespace AgroSim.Editor
                 Require(File.ReadAllText(path)==before && (float)read(completed,"Fuel")==100f,"Failed replacement must preserve disk and memory.");
                 Require((string)read(completed,"SavedAtUtc")==beforeDate,"Failed write must preserve last save date.");
                 Directory.Delete(path+".bak");
-                File.WriteAllText(path,before.Replace("\"version\": 2","\"version\": 99"));
+                File.WriteAllText(path,before.Replace("\"version\": 3","\"version\": 99"));
                 var unknown=open(); Require((bool)read(unknown,"NeedsInitialSave"),"Unknown version must not be accepted.");
                 // Construct an explicit invalid value independent of JSON float formatting.
                 string outOfRange=System.Text.RegularExpressions.Regex.Replace(before,"\"fuelLiters\"\\s*:\\s*[0-9.]+","\"fuelLiters\": 101");

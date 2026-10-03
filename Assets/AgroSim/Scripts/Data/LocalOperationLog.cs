@@ -11,10 +11,16 @@ namespace AgroSim.Data
         {
             public string operationId, runId, originCheckpointId, eventId, timestampUtc, kind, tractorId = "TR-01", fieldId = "FIELD-01", decision;
             public float progress, fuelLiters, wearPercent, productivityPercent;
+            public string operationType, implementId;
+            public int operationIndex;
         }
         private string operationId;
         private string runId, checkpointId;
         private int sequence;
+        private string operationType="soil_preparation", implementId="Grade aradora";
+        private int operationIndex;
+        public void SetOperation(int index,string type,string equipment)
+        { operationIndex=index; operationType=type; implementId=equipment; }
         public string OperationId => operationId;
         public string FilePath { get; private set; }
         public string LastError { get; private set; }
@@ -34,6 +40,7 @@ namespace AgroSim.Data
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
                 var record = new Record { operationId = operationId, runId=runId, originCheckpointId=checkpointId, eventId=operationId+":"+(++sequence), timestampUtc = DateTime.UtcNow.ToString("o"),
+                    operationType=operationType, implementId=implementId, operationIndex=operationIndex,
                     kind = kind, progress = progress, fuelLiters = fuel, wearPercent = wear,
                     productivityPercent = productivity, decision = decision };
                 File.AppendAllText(FilePath, JsonUtility.ToJson(record) + Environment.NewLine);
@@ -45,7 +52,7 @@ namespace AgroSim.Data
                 Debug.LogWarning(LastError + " " + error.Message);
             }
         }
-        public static bool WriteRecovery(string directory,string id,string run,string checkpoint,string kind)
+        public static bool WriteRecovery(string directory,string id,string run,string checkpoint,string kind,int operationIndex=0)
         {
             string path=Path.Combine(directory,id+".jsonl"), eventId=id+":recovery";
             try
@@ -56,7 +63,8 @@ namespace AgroSim.Data
                     try { if(line.TrimEnd().EndsWith("}") && JsonUtility.FromJson<Record>(line)?.eventId==eventId) return true; }
                     catch(ArgumentException) {} // A crash may leave one incomplete telemetry line.
                 }
-                var record=new Record {operationId=id,runId=run,originCheckpointId=checkpoint,eventId=eventId,kind=kind,timestampUtc=DateTime.UtcNow.ToString("o")};
+                var definition=AgroSim.Operations.OperationCatalog.Get(operationIndex);
+                var record=new Record {operationId=id,runId=run,originCheckpointId=checkpoint,eventId=eventId,kind=kind,timestampUtc=DateTime.UtcNow.ToString("o"),operationIndex=operationIndex,operationType=definition.Id,implementId=definition.Implement};
                 // A leading newline keeps a partially written last sample separate from the recovery record.
                 byte[] bytes=System.Text.Encoding.UTF8.GetBytes(Environment.NewLine+JsonUtility.ToJson(record)+Environment.NewLine);
                 using(var stream=new FileStream(path,FileMode.Append,FileAccess.Write,FileShare.Read))

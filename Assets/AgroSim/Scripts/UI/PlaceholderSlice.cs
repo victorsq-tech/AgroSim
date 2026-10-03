@@ -22,6 +22,13 @@ namespace AgroSim.UI
         private Vector3[] route;
         private int routeIndex;
         private float startingFuel;
+        private FieldWorkVisual fieldVisual;
+        private OperationDefinition definition;
+        private UnityEngine.UI.Text operationTitle,eventText,fieldLegend,garageSubtitle,previewLabel;
+        private float outcomeProductivity=100;
+        private bool outcomeCompleted;
+        private float outcomeProgress;
+        private GameObject sprayMist;
         private readonly GaragePreparation preparation = new GaragePreparation();
         private Transform implement;
         private UnityEngine.UI.Button startButton;
@@ -56,12 +63,14 @@ namespace AgroSim.UI
             if (FindAnyObjectByType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
             var top = Panel(canvas.transform, "Telemetry", new Vector2(.02f,.8f), new Vector2(.98f,.98f));
-            Label(top.transform, "AGROSIM  /  DIA 1 — PREPARO DO SOLO", 24, new Vector2(.03f,.55f), new Vector2(.97f,.95f));
+            operationTitle=Label(top.transform, "", 24, new Vector2(.03f,.55f), new Vector2(.97f,.95f));
             status = Label(top.transform, "", 19, new Vector2(.03f,.08f), new Vector2(.97f,.55f));
+            var legend=Panel(canvas.transform,"FieldLegend",new Vector2(.02f,.02f),new Vector2(.98f,.15f));
+            fieldLegend=Label(legend.transform,"",18,new Vector2(.03f,.08f),new Vector2(.97f,.92f));
             garage = Panel(canvas.transform, "GarageScreen", Vector2.zero, Vector2.one);
             garage.GetComponent<UnityEngine.UI.Image>().color = new Color(.075f,.1f,.12f,1f);
             Label(garage.transform,"AGROSIM  /  GALPÃO",32,new Vector2(.05f,.87f),new Vector2(.8f,.96f));
-            Label(garage.transform,"Prepare o equipamento e cuide do TR-01 antes de sair.",20,new Vector2(.05f,.79f),new Vector2(.95f,.87f));
+            garageSubtitle=Label(garage.transform,"",20,new Vector2(.05f,.79f),new Vector2(.76f,.835f));
             var equipment=Panel(garage.transform,"EquipmentBay",new Vector2(.04f,.18f),new Vector2(.51f,.76f));
             Label(equipment.transform,"01  EQUIPAMENTOS",24,new Vector2(.06f,.87f),new Vector2(.94f,.97f));
             tractorPreview=Panel(equipment.transform,"TractorPreview",new Vector2(.08f,.69f),new Vector2(.31f,.81f));
@@ -69,7 +78,9 @@ namespace AgroSim.UI
             Label(tractorPreview.transform,"TR-01",20,Vector2.zero,Vector2.one).alignment=TextAnchor.MiddleCenter;
             implementPreview=Panel(equipment.transform,"ImplementPreview",new Vector2(.36f,.69f),new Vector2(.64f,.81f));
             implementPreview.GetComponent<UnityEngine.UI.Image>().color=new Color(.63f,.24f,.2f);
-            Label(implementPreview.transform,"GRADE",18,Vector2.zero,Vector2.one).alignment=TextAnchor.MiddleCenter;
+            previewLabel=Label(implementPreview.transform,"GRADE",18,Vector2.zero,Vector2.one);
+            previewLabel.alignment=TextAnchor.MiddleCenter;
+            previewLabel.resizeTextForBestFit=true; previewLabel.resizeTextMinSize=10; previewLabel.resizeTextMaxSize=18;
             equipmentDetails = Label(equipment.transform, "", 20, new Vector2(.06f,.22f), new Vector2(.94f,.46f));
             equipmentDetails.resizeTextForBestFit = true;
             equipmentDetails.resizeTextMinSize = 15;
@@ -93,7 +104,7 @@ namespace AgroSim.UI
             Rect(startLabel.transform.parent.GetComponent<RectTransform>(),new Vector2(.63f,.15f),new Vector2(.97f,.85f));
             startButton = startLabel.transform.parent.GetComponent<UnityEngine.UI.Button>();
             eventPanel = Panel(canvas.transform, "AgriculturalEvent", new Vector2(.32f,.24f), new Vector2(.78f,.67f));
-            Label(eventPanel.transform, "SOLO COMPACTADO\nA resistência aumentou. Como proceder?", 23, new Vector2(.06f,.59f), new Vector2(.94f,.94f));
+            eventText=Label(eventPanel.transform, "", 23, new Vector2(.06f,.59f), new Vector2(.94f,.94f));
             Button(eventPanel.transform, "Ajustar velocidade · +3 L", .34f, () => Decide(true));
             Button(eventPanel.transform, "Continuar · -15% produtividade", .11f, () => Decide(false));
             eventPanel.SetActive(false);
@@ -120,6 +131,8 @@ namespace AgroSim.UI
             Button(confirmation.transform,"Confirmar novo jogo",.09f,NewGame);
             newGamePanel.SetActive(false);
             saves=new SaveGameStore(System.IO.Path.Combine(Application.persistentDataPath,"AgroSim"));
+            var field=GameObject.Find("Field01");
+            if(field!=null) { fieldVisual=gameObject.AddComponent<FieldWorkVisual>(); fieldVisual.Initialize(field.GetComponent<SpriteRenderer>()); }
             recovering=true;
             saveFailed=!saves.RecoverAttempt();
             if(!saveFailed && saves.NeedsInitialSave) saveFailed=!saves.EnsureSaved();
@@ -130,14 +143,17 @@ namespace AgroSim.UI
 
         private void StartOperation()
         {
-            if (saveFailed || !preparation.CanStart || !operation.CanOperate || manager.CurrentState != GameState.Garage) return;
+            if (saveFailed || saves.NextOperationIndex>=OperationCatalog.Count || !preparation.CanStart || !operation.CanOperate || manager.CurrentState != GameState.Garage) return;
             string id=saves.BeginAttempt();
             if(id==null) { saveFailed=true; UpdateSelection(); return; }
             serviceMessage=null;
             startingFuel=operation.Fuel;
             operation.Begin();
+            outcomeCompleted=false;
             route=new[]{home,new Vector3(-2.7f,-1f,0f),new Vector3(-2.7f,-2f,0f),new Vector3(0f,-2f,0f)}; routeIndex=1;
-            log.Begin(id,saves.RunId,saves.CheckpointId,saves.DirectoryPath); sampleTimer = 0f; Record("started");
+            log.Begin(id,saves.RunId,saves.CheckpointId,saves.DirectoryPath);
+            log.SetOperation(saves.NextOperationIndex,definition.Id,definition.Implement);
+            sampleTimer = 0f; Record("started");
             manager.ChangeState(GameState.Traveling);
             garage.SetActive(false);
         }
@@ -151,11 +167,8 @@ namespace AgroSim.UI
             else if (manager.CurrentState == GameState.Operating)
             {
                 operation.Tick(Time.deltaTime);
-                float p = operation.Progress * 4f;
-                int lane = Mathf.Min(3, Mathf.FloorToInt(p));
-                float x = Mathf.Lerp(0f,6f,p-lane);
-                if (lane % 2 == 1) x = 6f-x;
-                MoveTractor(new Vector3(x,-2f+lane*1.05f,0f));
+                MoveTractor(FieldWorkVisual.PositionAt(operation.Progress));
+                fieldVisual?.Render(saves.NextOperationIndex,operation.Progress);
                 eventPanel.SetActive(operation.EventPending);
                 sampleTimer += Time.deltaTime;
                 if (sampleTimer >= 1f) { sampleTimer = 0f; Record("telemetry"); }
@@ -163,8 +176,11 @@ namespace AgroSim.UI
                 {
                     manager.ChangeState(GameState.Result);
                     Record(operation.Progress>=1f ? "completed" : "interrupted");
-                    if(operation.Progress>=1f) saveFailed=!saves.CompleteAttempt(log.OperationId);
-                    result.text = $"{(operation.Progress>=1f ? "OPERAÇÃO CONCLUÍDA" : "OPERAÇÃO INTERROMPIDA")}\n\nTalhão 01 · preparo do solo\nCombustível utilizado: {startingFuel-operation.Fuel:F1} L\nDesgaste acumulado: {operation.Wear:F1}%\nProdutividade: {operation.Productivity:F0}%\n\n{((saveFailed ? saves.LastError : null) ?? log.LastError ?? "Telemetria e resultado salvos neste PC.")}\nRetorne ao galpão para manutenção.";
+                    outcomeCompleted=operation.Progress>=1f;
+                    outcomeProductivity=operation.Productivity;
+                    outcomeProgress=operation.Progress;
+                    if(outcomeCompleted) saveFailed=!saves.CompleteAttempt(log.OperationId);
+                    result.text = $"{(outcomeCompleted ? "OPERAÇÃO CONCLUÍDA" : "OPERAÇÃO INTERROMPIDA")}\n\nTalhão 01 · {definition.Name}\nCombustível utilizado: {startingFuel-operation.Fuel:F1} L\nDesgaste acumulado: {operation.Wear:F1}%\nProdutividade: {operation.Productivity:F0}%\n\n{((saveFailed ? saves.LastError : null) ?? log.LastError ?? "Registros locais gerados.")}\nRetorne ao galpão para confirmar o terreno.";
                     Debug.Log("AgroSim operation log: " + log.FilePath);
                     resultPanel.SetActive(true);
                 }
@@ -174,6 +190,7 @@ namespace AgroSim.UI
                 if(FollowRoute()) ReturnHome();
             }
             UpdateStatus();
+            if(sprayMist!=null) sprayMist.SetActive(saves.NextOperationIndex==3 && manager.CurrentState==GameState.Operating && !operation.EventPending);
         }
 
         private void Decide(bool adjust)
@@ -182,7 +199,10 @@ namespace AgroSim.UI
             Record("decision", adjust ? "adjust_speed" : "continue");
         }
         private void Record(string kind, string decision = null)
-        { log.Write(kind, operation.Progress, operation.Fuel, operation.Wear, operation.Productivity, decision); }
+        {
+            bool confirmed=kind=="confirmed";
+            log.Write(kind,confirmed ? (outcomeCompleted ? 1f : outcomeProgress) : operation.Progress,operation.Fuel,operation.Wear,confirmed ? outcomeProductivity : operation.Productivity,decision);
+        }
         private void BeginReturn()
         {
             resultPanel.SetActive(false);
@@ -194,7 +214,7 @@ namespace AgroSim.UI
         {
             if(!recovering && saves.PendingAttemptId!=null)
             {
-                saveFailed=!saves.ConfirmAttempt(log.OperationId,operation.Fuel,operation.Wear);
+                saveFailed=!ConfirmOutcome();
                 if(!saveFailed) Record("confirmed");
             }
             manager.ChangeState(GameState.Garage);
@@ -202,15 +222,68 @@ namespace AgroSim.UI
             tractor.rotation=Quaternion.identity;
             garage.SetActive(true); resultPanel.SetActive(false); eventPanel.SetActive(false);
             preparation.Reset();
-            operation.Reset(); UpdateSelection();
+            ConfigureCheckpoint(); UpdateSelection();
+        }
+        private bool ConfirmOutcome()
+        {
+            // Retry a failed completion write before confirming; never advance incomplete work.
+            if(outcomeCompleted && !saves.CompleteAttempt(log.OperationId)) return false;
+            return saves.ConfirmFieldAttempt(log.OperationId,operation.Fuel,operation.Wear,outcomeProductivity);
+        }
+        private void ConfigureCheckpoint()
+        {
+            definition=OperationCatalog.Get(saves.NextOperationIndex);
+            operation.Configure(saves.Productivity);
+            fieldVisual?.Render(saves.NextOperationIndex,0);
+            eventText.text=definition.Event;
+            operationTitle.text=saves.NextOperationIndex>=5 ? "AGROSIM / CICLO CONCLUÍDO" : $"AGROSIM / ETAPA {saves.NextOperationIndex+1}/5 — {definition.Name.ToUpperInvariant()}";
+            fieldLegend.text=$"{definition.Before} → {definition.After}\nA mudança acompanha as passadas do trator. Valores e equipamentos ilustrativos.";
+            garageSubtitle.text=saves.NextOperationIndex>=5 ? "Cinco operações concluídas · talhão colhido." : $"Próxima etapa {saves.NextOperationIndex+1}/5: {definition.Name}";
+            previewLabel.text=definition.Implement.ToUpperInvariant();
+            implementPreview.GetComponent<UnityEngine.UI.Image>().color=definition.Color;
+            ConfigureImplement();
+        }
+        private void ConfigureImplement()
+        {
+            if(implement==null) return;
+            var renderer=implement.GetComponent<SpriteRenderer>();
+            if(renderer==null) return;
+            renderer.color=definition.Color;
+            // Swap recognizable silhouettes without replacing the saved prefab.
+            renderer.size=saves.NextOperationIndex==3 ? new Vector2(.3f,1.8f) : saves.NextOperationIndex==4 ? new Vector2(.9f,1.1f) : new Vector2(.55f,.9f);
+            for(int i=0;i<5;i++)
+            {
+                string name="PlaceholderToolPart"+i;
+                var part=implement.Find(name);
+                if(part==null)
+                {
+                    var go=new GameObject(name); go.transform.SetParent(implement,false); part=go.transform;
+                    var r=go.AddComponent<SpriteRenderer>(); r.sprite=renderer.sprite; r.sortingOrder=renderer.sortingOrder+1;
+                }
+                part.localPosition=new Vector3(-.25f,-.4f+i*.2f,0);
+                part.localScale=new Vector3(.16f,.07f,1);
+                var detail=part.GetComponent<SpriteRenderer>(); detail.color=saves.NextOperationIndex==3 ? new Color(.55f,.8f,.85f) : new Color(.2f,.22f,.2f);
+            }
+            if(sprayMist==null)
+            {
+                sprayMist=new GameObject("SprayMistPlaceholder"); sprayMist.transform.SetParent(implement,false);
+                for(int i=0;i<9;i++)
+                {
+                    var go=new GameObject("Mist"+i); go.transform.SetParent(sprayMist.transform,false);
+                    go.transform.localPosition=new Vector3(-.4f-(i%3)*.18f,-.6f+(i/3)*.6f,0);
+                    go.transform.localScale=new Vector3(.22f,.35f,1);
+                    var r=go.AddComponent<SpriteRenderer>(); r.sprite=renderer.sprite; r.sortingOrder=renderer.sortingOrder-1; r.color=new Color(.7f,.9f,.9f,.27f);
+                }
+                sprayMist.SetActive(false);
+            }
         }
         private void UpdateSelection()
         {
             tractorLabel.text = preparation.TractorSelected ? "Desmarcar TR-01" : "Selecionar TR-01";
-            implementLabel.text = preparation.ImplementSelected ? "Desacoplar grade aradora" : "Acoplar grade aradora";
-            implementButton.interactable = preparation.TractorSelected;
+            implementLabel.text = (preparation.ImplementSelected ? "Desacoplar " : "Acoplar ")+definition.Implement.ToLowerInvariant();
+            implementButton.interactable = preparation.TractorSelected && saves.NextOperationIndex<5;
             if (implement != null) implement.gameObject.SetActive(preparation.ImplementSelected);
-            startButton.interactable = !saveFailed && preparation.CanStart && operation.CanOperate;
+            startButton.interactable = !saveFailed && saves.NextOperationIndex<5 && preparation.CanStart && operation.CanOperate;
             long refuelCost=GarageEconomy.RefuelCost(operation.Fuel), repairCost=GarageEconomy.RepairCost(operation.Wear);
             refuelButton.interactable=!saveFailed && preparation.TractorSelected && operation.Fuel<99.99f && saves.BalanceCents>=refuelCost;
             repairButton.interactable=!saveFailed && preparation.TractorSelected && operation.Wear>.001f && saves.BalanceCents>=repairCost;
@@ -222,10 +295,10 @@ namespace AgroSim.UI
             tractorPreview.GetComponent<UnityEngine.UI.Image>().color=preparation.TractorSelected ? new Color(.95f,.75f,.15f) : new Color(.4f,.38f,.25f);
             implementPreview.SetActive(preparation.ImplementSelected);
             maintenanceDetails.text=$"Saldo: {GarageEconomy.Money(saves.BalanceCents)}\nCombustível: {operation.Fuel:F1} / 100 L\nDesgaste: {operation.Wear:F1}%\nPreços: {GarageEconomy.Money(GarageEconomy.FuelPriceCents)}/L\nReparo: {GarageEconomy.Money(GarageEconomy.WearPointPriceCents)}/ponto de desgaste";
-            garageMessage.text=!preparation.TractorSelected ? "Selecione o TR-01 para preparar ou fazer manutenção." : !operation.CanOperate ? "Abasteça ou repare antes de sair. Reserva mínima: 22,5 L." : !preparation.ImplementSelected ? "Acople a grade aradora para liberar a saída." : "Equipamento pronto · preparo do solo no talhão 01.";
+            garageMessage.text=saves.NextOperationIndex>=5 ? "Ciclo concluído! Use Novo jogo para recomeçar." : !preparation.TractorSelected ? "Selecione o TR-01 para preparar ou fazer manutenção." : !operation.CanOperate ? "Abasteça ou repare antes de sair. Reserva mínima: 22,5 L." : !preparation.ImplementSelected ? "Acople o implemento para liberar a saída." : "Equipamento pronto · "+definition.Name+" no talhão 01.";
             equipmentDetails.text = preparation.TractorSelected
-                ? $"{(tractorData != null ? tractorData.displayName : "Trator TR-01")}\nTanque: {(tractorData != null ? tractorData.fuelCapacityLiters : 100f):F0} L · disponível: {operation.Fuel:F0} L\nDesgaste: {operation.Wear:F1}%\nGrade aradora · preparo do solo\nDados ilustrativos do protótipo"
-                : "Selecione o trator para ver os dados.\nDepois, acople a grade aradora.\nO início requer os dois equipamentos.";
+                ? $"{(tractorData != null ? tractorData.displayName : "Trator TR-01")}\nTanque: {(tractorData != null ? tractorData.fuelCapacityLiters : 100f):F0} L · disponível: {operation.Fuel:F0} L\nDesgaste: {operation.Wear:F1}%\n{definition.Implement} · {definition.Name}\nProdutividade confirmada: {saves.Productivity:F0}%"
+                : "Selecione o trator para ver os dados.\nDepois, acople o implemento indicado.\nO início requer os dois equipamentos.";
             UpdateStatus();
         }
         private void Refuel()
@@ -258,7 +331,7 @@ namespace AgroSim.UI
             if(manager.CurrentState!=GameState.Garage) return;
             if(saves.PendingAttemptId!=null && log.OperationId==saves.PendingAttemptId)
             {
-                saveFailed=!saves.ConfirmAttempt(log.OperationId,operation.Fuel,operation.Wear);
+                saveFailed=!ConfirmOutcome();
                 if(!saveFailed) Record("confirmed");
             }
             else
@@ -266,7 +339,7 @@ namespace AgroSim.UI
                 saveFailed=!saves.RecoverAttempt();
                 if(!saveFailed) saveFailed=!saves.SaveCheckpoint(operation.Fuel,operation.Wear);
             }
-            if(!saveFailed) serviceMessage=null;
+            if(!saveFailed) { serviceMessage=null; ConfigureCheckpoint(); }
             UpdateSelection();
         }
         private void NewGame()
@@ -296,7 +369,7 @@ namespace AgroSim.UI
                 status.text = $"TR-01: {(preparation.TractorSelected ? "selecionado" : "aguardando seleção")}   |   Grade: {(preparation.ImplementSelected ? "acoplada" : "aguardando seleção")}   |   {(preparation.CanStart ? "Pronto para iniciar" : "Preparação incompleta")}";
             else
             {
-                string phase = manager.CurrentState == GameState.Traveling ? "Indo ao talhão" : manager.CurrentState == GameState.Returning ? "Voltando ao galpão" : manager.CurrentState == GameState.Result ? "Concluído" : operation.EventPending ? "Aguardando decisão" : "Preparando o solo";
+                string phase = manager.CurrentState == GameState.Traveling ? "Indo ao talhão" : manager.CurrentState == GameState.Returning ? "Voltando ao galpão" : manager.CurrentState == GameState.Result ? "Resultado" : operation.EventPending ? "Aguardando decisão" : definition.Name;
                 status.text = $"{phase}   |   {operation.Progress:P0}   |   Combustível {operation.Fuel:F1} L   |   Desgaste {operation.Wear:F1}%   |   Produtividade {operation.Productivity:F0}%";
             }
         }

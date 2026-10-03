@@ -18,11 +18,13 @@ namespace AgroSim.Data
             public long balanceCents;
             public Purchase lastPurchase;
             public string[] confirmedPurchaseIds;
+            public int nextOperationIndex;
+            public float productivityPercent;
         }
         [Serializable] private sealed class Purchase
         { public string id,kind,timestampUtc; public long costCents; }
         [Serializable] private sealed class Attempt
-        { public string id, checkpointId, status; }
+        { public string id, checkpointId, status; public int operationIndex; }
         private Save current;
         private bool blocked;
         private readonly int fuelPriceCents, wearPointPriceCents;
@@ -33,6 +35,8 @@ namespace AgroSim.Data
         public bool NeedsInitialSave { get; private set; } = true;
         public float Fuel => current.fuelLiters;
         public float Wear => current.wearPercent;
+        public int NextOperationIndex => current.nextOperationIndex;
+        public float Productivity => current.productivityPercent;
         public string RunId => current.runId;
         public string CheckpointId => current.checkpointId;
         public long BalanceCents => current.balanceCents;
@@ -57,9 +61,12 @@ namespace AgroSim.Data
                 var loaded=JsonUtility.FromJson<Save>(json);
                 if(loaded?.pending!=null && string.IsNullOrEmpty(loaded.pending.id) && string.IsNullOrEmpty(loaded.pending.checkpointId) && string.IsNullOrEmpty(loaded.pending.status)) loaded.pending=null;
                 if(loaded?.lastPurchase!=null && string.IsNullOrEmpty(loaded.lastPurchase.id) && string.IsNullOrEmpty(loaded.lastPurchase.kind) && string.IsNullOrEmpty(loaded.lastPurchase.timestampUtc) && loaded.lastPurchase.costCents==0) loaded.lastPurchase=null;
-                bool migrated=loaded!=null && loaded.version==1;
-                if(migrated) { loaded.version=2; loaded.balanceCents=GarageEconomy.InitialBalanceCents; loaded.lastPurchase=null; loaded.confirmedPurchaseIds=Array.Empty<string>(); }
-                if(loaded!=null && !migrated && !json.Contains("\"balanceCents\"")) throw new ArgumentException("Missing balance.");
+                bool migrated=loaded!=null && (loaded.version==1 || loaded.version==2);
+                if(loaded!=null && loaded.version!=1 && !json.Contains("\"balanceCents\"")) throw new ArgumentException("Missing balance.");
+                if(loaded!=null && loaded.version==1) { loaded.version=2; loaded.balanceCents=GarageEconomy.InitialBalanceCents; loaded.lastPurchase=null; loaded.confirmedPurchaseIds=Array.Empty<string>(); }
+                if(loaded!=null && !json.Contains("\"balanceCents\"") && !migrated) throw new ArgumentException("Missing balance.");
+                if(migrated) { loaded.version=3; loaded.nextOperationIndex=0; loaded.productivityPercent=100; if(loaded.pending!=null) loaded.pending.operationIndex=0; }
+                if(loaded!=null && !migrated && (!json.Contains("\"nextOperationIndex\"") || !json.Contains("\"productivityPercent\""))) throw new ArgumentException("Missing field progression.");
                 if(!json.Contains("\"fuelLiters\"") || !json.Contains("\"wearPercent\"") || !Valid(loaded))
                     throw new ArgumentException("Invalid or unsupported save.");
                 current=loaded;
@@ -80,17 +87,17 @@ namespace AgroSim.Data
         private static string Id() => Guid.NewGuid().ToString("N");
         private static bool ValidId(string id) => Guid.TryParseExact(id,"N",out _);
         private static bool Condition(float fuel,float wear) => !float.IsNaN(fuel) && !float.IsInfinity(fuel) && fuel>=0 && fuel<=100 && !float.IsNaN(wear) && !float.IsInfinity(wear) && wear>=0 && wear<=100;
-        private static Save Fresh() => new Save {version=2,runId=Id(),checkpointId=Id(),fuelLiters=100,wearPercent=0,confirmedIds=Array.Empty<string>(),confirmedPurchaseIds=Array.Empty<string>(),balanceCents=GarageEconomy.InitialBalanceCents};
+        private static Save Fresh() => new Save {version=3,runId=Id(),checkpointId=Id(),fuelLiters=100,wearPercent=0,productivityPercent=100,confirmedIds=Array.Empty<string>(),confirmedPurchaseIds=Array.Empty<string>(),balanceCents=GarageEconomy.InitialBalanceCents};
         private static bool Valid(Save save)
         {
-            if(save==null || save.version!=2 || save.balanceCents<0 || save.balanceCents>GarageEconomy.InitialBalanceCents || !ValidId(save.runId) || !ValidId(save.checkpointId) || !Condition(save.fuelLiters,save.wearPercent) || save.confirmedIds==null) return false;
+            if(save==null || save.version!=3 || save.nextOperationIndex<0 || save.nextOperationIndex>5 || !Condition(save.productivityPercent,0) || save.balanceCents<0 || save.balanceCents>GarageEconomy.InitialBalanceCents || !ValidId(save.runId) || !ValidId(save.checkpointId) || !Condition(save.fuelLiters,save.wearPercent) || save.confirmedIds==null) return false;
             if(save.lastPurchase!=null && (!ValidId(save.lastPurchase.id) || (save.lastPurchase.kind!="refuel" && save.lastPurchase.kind!="repair") || save.lastPurchase.costCents<0 || save.lastPurchase.costCents>100000 || !DateTimeOffset.TryParse(save.lastPurchase.timestampUtc,out _))) return false;
             foreach(var id in save.confirmedIds) if(!ValidId(id)) return false;
             if(save.confirmedPurchaseIds==null) return false;
             foreach(var id in save.confirmedPurchaseIds) if(!ValidId(id)) return false;
-            return save.pending==null || (ValidId(save.pending.id) && save.pending.checkpointId==save.checkpointId && (save.pending.status=="in_progress" || save.pending.status=="completed") && Array.IndexOf(save.confirmedIds,save.pending.id)<0);
+            return save.pending==null || (save.nextOperationIndex<5 && save.pending.operationIndex==save.nextOperationIndex && ValidId(save.pending.id) && save.pending.checkpointId==save.checkpointId && (save.pending.status=="in_progress" || save.pending.status=="completed") && Array.IndexOf(save.confirmedIds,save.pending.id)<0);
         }
-        private Save Copy() => new Save {version=current.version,runId=current.runId,checkpointId=current.checkpointId,savedAtUtc=current.savedAtUtc,fuelLiters=current.fuelLiters,wearPercent=current.wearPercent,balanceCents=current.balanceCents,confirmedPurchaseIds=(string[])current.confirmedPurchaseIds.Clone(),lastPurchase=current.lastPurchase==null ? null : new Purchase {id=current.lastPurchase.id,kind=current.lastPurchase.kind,timestampUtc=current.lastPurchase.timestampUtc,costCents=current.lastPurchase.costCents},confirmedIds=(string[])current.confirmedIds.Clone(),pending=current.pending==null ? null : new Attempt {id=current.pending.id,checkpointId=current.pending.checkpointId,status=current.pending.status}};
+        private Save Copy() => new Save {version=current.version,nextOperationIndex=current.nextOperationIndex,productivityPercent=current.productivityPercent,runId=current.runId,checkpointId=current.checkpointId,savedAtUtc=current.savedAtUtc,fuelLiters=current.fuelLiters,wearPercent=current.wearPercent,balanceCents=current.balanceCents,confirmedPurchaseIds=(string[])current.confirmedPurchaseIds.Clone(),lastPurchase=current.lastPurchase==null ? null : new Purchase {id=current.lastPurchase.id,kind=current.lastPurchase.kind,timestampUtc=current.lastPurchase.timestampUtc,costCents=current.lastPurchase.costCents},confirmedIds=(string[])current.confirmedIds.Clone(),pending=current.pending==null ? null : new Attempt {id=current.pending.id,checkpointId=current.pending.checkpointId,status=current.pending.status,operationIndex=current.pending.operationIndex}};
         public bool EnsureSaved()
         {
             if(!NeedsInitialSave) return true;
@@ -121,8 +128,9 @@ namespace AgroSim.Data
         }
         public string BeginAttempt()
         {
+            if(NextOperationIndex>=5) { LastError="Ciclo concluído. Inicie um novo jogo para recomeçar."; return null; }
             if(current.pending!=null) { LastError="Confirme a operação anterior antes de sair."; return null; }
-            var next=Copy(); next.pending=new Attempt {id=Id(),checkpointId=next.checkpointId,status="in_progress"};
+            var next=Copy(); next.pending=new Attempt {id=Id(),checkpointId=next.checkpointId,status="in_progress",operationIndex=NextOperationIndex};
             return Persist(next) ? next.pending.id : null;
         }
         public bool CompleteAttempt(string id)
@@ -131,10 +139,13 @@ namespace AgroSim.Data
             var next=Copy(); next.pending.status="completed"; return Persist(next);
         }
         public bool ConfirmAttempt(string id,float fuel,float wear)
+        { return ConfirmFieldAttempt(id,fuel,wear,Productivity); }
+        public bool ConfirmFieldAttempt(string id,float fuel,float wear,float productivity)
         {
             if(Array.IndexOf(current.confirmedIds,id)>=0) return true;
-            if(current.pending?.id!=id || !Condition(fuel,wear)) { LastError="Não foi possível confirmar a tentativa."; return false; }
+            if(current.pending?.id!=id || !Condition(fuel,wear) || !Condition(productivity,0)) { LastError="Não foi possível confirmar a tentativa."; return false; }
             var next=Copy(); var ids=new string[next.confirmedIds.Length+1];
+            if(next.pending.status=="completed") { next.nextOperationIndex++; next.productivityPercent=productivity; }
             Array.Copy(next.confirmedIds,ids,next.confirmedIds.Length); ids[ids.Length-1]=id;
             next.confirmedIds=ids; next.pending=null; next.fuelLiters=fuel; next.wearPercent=wear; next.checkpointId=Id();
             next.savedAtUtc=DateTime.UtcNow.ToString("o");
@@ -145,7 +156,7 @@ namespace AgroSim.Data
             if(current.pending==null) return !blocked;
             var pending=current.pending;
             string kind=pending.status=="completed" ? "completed_unconfirmed" : "interrupted";
-            if(!LocalOperationLog.WriteRecovery(DirectoryPath,pending.id,current.runId,pending.checkpointId,kind))
+            if(!LocalOperationLog.WriteRecovery(DirectoryPath,pending.id,current.runId,pending.checkpointId,kind,pending.operationIndex))
             { LastError="Não foi possível registrar a interrupção. Tente salvar novamente."; return false; }
             var next=Copy(); next.pending=null;
             if(!Persist(next)) return false;

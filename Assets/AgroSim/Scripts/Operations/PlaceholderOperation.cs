@@ -11,6 +11,9 @@ namespace AgroSim.Operations
         public bool EventPending { get; private set; }
         public bool Running { get; private set; }
         private bool eventResolved;
+        private float startingProductivity=100f;
+        public void Configure(float productivity)
+        { if(!Running) { startingProductivity=Mathf.Clamp(productivity,0,100); Reset(); } }
         public const float FuelCapacity = 100f;
         public const float RequiredFuel = 22.5f;
         public bool CanOperate => Fuel >= RequiredFuel && Wear <= 91.4f;
@@ -26,7 +29,7 @@ namespace AgroSim.Operations
         public void Reset()
         {
             Progress = 0f;
-            Productivity = 100f;
+            Productivity = startingProductivity;
             eventResolved = EventPending = Running = false;
         }
 
@@ -54,7 +57,7 @@ namespace AgroSim.Operations
         {
             if (!EventPending) return;
             if (adjust) Fuel = Mathf.Max(0f, Fuel - 3f);
-            else { Productivity -= 15f; Wear = Mathf.Min(100f,Wear+5f); }
+            else { Productivity = Mathf.Max(0,Productivity-15f); Wear = Mathf.Min(100f,Wear+5f); }
             eventResolved = true;
             EventPending = false;
         }
