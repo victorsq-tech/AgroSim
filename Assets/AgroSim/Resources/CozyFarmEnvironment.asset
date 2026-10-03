@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bebef72d9fc897408db060b289239ed, type: 3}
+  m_Name: CozyFarmEnvironment
+  m_EditorClassIdentifier: Assembly-CSharp::AgroSim.UI.CozyFarmEnvironmentSettings
+  grass: {fileID: -2032889951, guid: 9507db848132f1d43b659e6482620ed7, type: 3}
+  trees:
+  - {fileID: 6546730991220994830, guid: b9213b90abbfe284ba4ffffdaf709899, type: 3}
+  - {fileID: 5080491302493382329, guid: 8d52b740d795ef742b81aae8290b74fd, type: 3}
+  - {fileID: 8246304811670395549, guid: 6dbd4cda3886a50449782517bb9a57fb, type: 3}
+  - {fileID: 3425455706327214019, guid: 19ac334bb5d49684b930525e71b2681b, type: 3}
+  - {fileID: 1806103860979535517, guid: 78ac74e11b780034899fd9451ae6bb4d, type: 3}

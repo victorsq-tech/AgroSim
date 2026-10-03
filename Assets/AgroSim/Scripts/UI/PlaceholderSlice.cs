@@ -59,6 +59,7 @@ namespace AgroSim.UI
         public FarmScreen CurrentScreen => menus?.Current ?? FarmScreen.Garage;
         private readonly Vector3 home = new Vector3(-5f, -1f, 0f);
 
+        private void OnDestroy() { travelView?.Dispose(); }
         private void Awake()
         {
             operation = gameObject.AddComponent<PlaceholderOperation>();
