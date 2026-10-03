@@ -45,6 +45,7 @@ namespace AgroSim.UI
         {
             foreach(var pair in screens) pair.Value.SetActive(pair.Key==Current);
             garage.SetActive(Current==FarmScreen.Garage);
+            if(slice.AtHome) slice.ShowFieldPreview(Current==FarmScreen.Field);
             quit.SetActive(false);
         }
         public void Refresh()
@@ -61,7 +62,7 @@ namespace AgroSim.UI
             SetRect(fuelFill,Vector2.zero,new Vector2(Mathf.Clamp01(slice.Fuel/100),1));
             SetRect(wearFill,Vector2.zero,new Vector2(Mathf.Clamp01(slice.Wear/100),1));
             string[] states={"Solo intacto","Solo arado","Linhas de sementes","Brotos e adubo","Lavoura madura","Talhão colhido"};
-            fieldInfo.text=$"TALHÃO 01\n\n{states[Mathf.Clamp(slice.NextOperationIndex,0,5)]}\n\n{next}\n\nProdutividade: {slice.Productivity:F0}%\n\nPrepare trator e implemento no galpão\npara iniciar a próxima operação.";
+            fieldInfo.text=$"{states[Mathf.Clamp(slice.NextOperationIndex,0,5)]} · Produtividade: {slice.Productivity:F0}%\n{next.Replace("\n"," · ")}\n{(slice.NextOperationIndex>=5 ? "Ciclo concluído." : "Prepare os equipamentos no galpão.")}";
             Color[] colors={new Color(.47f,.36f,.22f),new Color(.3f,.17f,.09f),new Color(.8f,.63f,.28f),new Color(.36f,.63f,.22f),new Color(.85f,.69f,.22f),new Color(.65f,.49f,.2f)};
             foreach(var row in fieldRows) row.color=colors[Mathf.Clamp(slice.NextOperationIndex,0,5)];
         }
@@ -172,12 +173,12 @@ namespace AgroSim.UI
         private void BuildField()
         {
             var screen=Screen(FarmScreen.Field,"TALHÃO 01","Acompanhe o estado do terreno e prepare a próxima operação.");
-            var preview=Box(screen.transform,"FieldPreview",new Vector2(.045f,.22f),new Vector2(.54f,.8f),new Color(.29f,.21f,.13f));
-            DrawRows(preview.transform,new Vector2(.04f,.08f),new Vector2(.96f,.94f));
-            var details=Box(screen.transform,"FieldDetails",new Vector2(.58f,.22f),new Vector2(.955f,.8f),Card);
-            fieldInfo=Text(details.transform,"",21,new Vector2(.07f,.24f),new Vector2(.93f,.94f)); Fit(fieldInfo,16,21);
-            ActionButton(details.transform,"Preparar no galpão",new Vector2(.07f,.04f),new Vector2(.93f,.18f),()=>Open(FarmScreen.Garage),Green,18);
-            BackToMap(screen.transform);
+            screen.GetComponent<UnityEngine.UI.Image>().color=Color.clear;
+            Box(screen.transform,"FieldHeading",new Vector2(0,.825f),Vector2.one,Card).transform.SetAsFirstSibling();
+            var details=Box(screen.transform,"FieldDetails",Vector2.zero,new Vector2(1,.2f),Card);
+            fieldInfo=Text(details.transform,"",19,new Vector2(.25f,.06f),new Vector2(.72f,.94f)); Fit(fieldInfo,12,19);
+            ActionButton(details.transform,"Ir ao galpão",new Vector2(.76f,.2f),new Vector2(.955f,.8f),()=>Open(FarmScreen.Garage),Green,18);
+            ActionButton(details.transform,"Voltar ao mapa",new Vector2(.045f,.2f),new Vector2(.225f,.8f),()=>Open(FarmScreen.FarmMap),Card,18);
         }
         private void BuildQuit()
         {

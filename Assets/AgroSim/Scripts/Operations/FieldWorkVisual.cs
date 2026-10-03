@@ -17,8 +17,8 @@ namespace AgroSim.Operations
         {
             float p=Mathf.Clamp01(progress)*Lanes;
             int lane=Mathf.Min(Lanes-1,Mathf.FloorToInt(p));
-            float x=6f*(p-lane); if(lane%2==1) x=6f-x;
-            return new Vector3(x,-2f+lane*1.05f,0);
+            float x=16f*(p-lane); if(lane%2==1) x=16f-x;
+            return new Vector3(-5f+x,-2.1f+lane*1.4f,0);
         }
         public void Initialize(SpriteRenderer field)
         {
@@ -32,8 +32,8 @@ namespace AgroSim.Operations
             for(int lane=0;lane<Lanes;lane++) for(int column=0;column<Columns;column++)
             {
                 var go=new GameObject($"Soil_{lane}_{column}"); go.transform.SetParent(transform,false);
-                go.transform.position=new Vector3(.125f+column*.25f,-2f+lane*1.05f,0);
-                go.transform.localScale=new Vector3(.25f,1.05f/4f,1);
+                go.transform.position=new Vector3(-5f+(column+.5f)*16f/Columns,-2.1f+lane*1.4f,0);
+                go.transform.localScale=new Vector3(16f/Columns,1.4f/4f,1);
                 var r=go.AddComponent<SpriteRenderer>(); r.sortingLayerID=field.sortingLayerID; r.sortingOrder=field.sortingOrder+1;
                 cells[lane*Columns+column]=r;
             }
