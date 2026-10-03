@@ -1,7 +1,7 @@
 # Proposta da etapa 04 — Saldo e custos do galpão
 
-Status: planejamento preparado; regras e valores apresentados para revisão.
-Implementação ainda não iniciada. Etapa 03 aprovada e autorizada para publicação.
+Status: regras e valores aprovados pelo usuário; implementação em validação.
+Etapa 03 publicada no GitHub, commit 23f9037.
 
 ## Objetivo
 
@@ -16,7 +16,7 @@ O saldo e a condição do trator devem permanecer consistentes ao salvar/reabrir
 - Reparo: R$ 10,00 por ponto percentual de desgaste removido.
 
 São parâmetros de demonstração; não representam pesquisa de preços reais.
-O usuário pode ajustar esses valores antes da implementação.
+O usuário aprovou esses valores para a primeira implementação.
 
 ## Regras
 

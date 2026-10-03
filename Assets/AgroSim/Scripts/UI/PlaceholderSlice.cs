@@ -29,6 +29,8 @@ namespace AgroSim.UI
         private UnityEngine.UI.Text equipmentDetails;
         private UnityEngine.UI.Text maintenanceDetails, garageMessage;
         private UnityEngine.UI.Button refuelButton, repairButton;
+        private UnityEngine.UI.Text refuelActionLabel,repairActionLabel;
+        private string serviceMessage;
         private GameObject tractorPreview, implementPreview;
         private UnityEngine.UI.Text tractorLabel, implementLabel;
         private readonly LocalOperationLog log = new LocalOperationLog();
@@ -80,8 +82,10 @@ namespace AgroSim.UI
             maintenanceDetails=Label(maintenance.transform,"",22,new Vector2(.06f,.51f),new Vector2(.94f,.82f));
             maintenanceDetails.resizeTextForBestFit=true; maintenanceDetails.resizeTextMinSize=16; maintenanceDetails.resizeTextMaxSize=22;
             var refuelLabel=Button(maintenance.transform,"Abastecer até 100 L",.29f,Refuel);
+            refuelActionLabel=refuelLabel;
             refuelButton=refuelLabel.transform.parent.GetComponent<UnityEngine.UI.Button>();
             var repairLabel=Button(maintenance.transform,"Reparar desgaste",.07f,Repair);
+            repairActionLabel=repairLabel;
             repairButton=repairLabel.transform.parent.GetComponent<UnityEngine.UI.Button>();
             var footer=Panel(garage.transform,"GarageFooter",new Vector2(.04f,.025f),new Vector2(.96f,.15f));
             garageMessage=Label(footer.transform,"",19,new Vector2(.025f,.1f),new Vector2(.6f,.9f));
@@ -118,7 +122,7 @@ namespace AgroSim.UI
             saves=new SaveGameStore(System.IO.Path.Combine(Application.persistentDataPath,"AgroSim"));
             recovering=true;
             saveFailed=!saves.RecoverAttempt();
-            if(!saveFailed && saves.NeedsInitialSave) saveFailed=!saves.SaveCheckpoint(saves.Fuel,saves.Wear);
+            if(!saveFailed && saves.NeedsInitialSave) saveFailed=!saves.EnsureSaved();
             operation.RestoreMachine(saves.Fuel,saves.Wear);
             ReturnHome();
             recovering=false;
@@ -129,6 +133,7 @@ namespace AgroSim.UI
             if (saveFailed || !preparation.CanStart || !operation.CanOperate || manager.CurrentState != GameState.Garage) return;
             string id=saves.BeginAttempt();
             if(id==null) { saveFailed=true; UpdateSelection(); return; }
+            serviceMessage=null;
             startingFuel=operation.Fuel;
             operation.Begin();
             route=new[]{home,new Vector3(-2.7f,-1f,0f),new Vector3(-2.7f,-2f,0f),new Vector3(0f,-2f,0f)}; routeIndex=1;
@@ -206,13 +211,17 @@ namespace AgroSim.UI
             implementButton.interactable = preparation.TractorSelected;
             if (implement != null) implement.gameObject.SetActive(preparation.ImplementSelected);
             startButton.interactable = !saveFailed && preparation.CanStart && operation.CanOperate;
-            refuelButton.interactable=!saveFailed && preparation.TractorSelected && operation.Fuel<99.99f;
-            repairButton.interactable=!saveFailed && preparation.TractorSelected && operation.Wear>.001f;
-            saveMessage.text=saveFailed ? (saves.LastError ?? "Save pendente. Use Tentar salvar antes de sair.") : (saves.LoadMessage ?? "Progresso do galpão salvo neste PC.");
+            long refuelCost=GarageEconomy.RefuelCost(operation.Fuel), repairCost=GarageEconomy.RepairCost(operation.Wear);
+            refuelButton.interactable=!saveFailed && preparation.TractorSelected && operation.Fuel<99.99f && saves.BalanceCents>=refuelCost;
+            repairButton.interactable=!saveFailed && preparation.TractorSelected && operation.Wear>.001f && saves.BalanceCents>=repairCost;
+            refuelActionLabel.text="Abastecer · "+GarageEconomy.Money(refuelCost);
+            repairActionLabel.text="Reparar · "+GarageEconomy.Money(repairCost);
+            bool insufficient=(operation.Fuel<99.99f && saves.BalanceCents<refuelCost) || (operation.Wear>.001f && saves.BalanceCents<repairCost);
+            saveMessage.text=saveFailed ? (saves.LastError ?? "Save pendente. Use Tentar salvar antes de sair.") : (insufficient ? "Saldo insuficiente para os serviços bloqueados." : serviceMessage ?? saves.LoadMessage ?? "Progresso do galpão salvo neste PC.");
             saveDate.text="Último save: "+saves.LastSaveDisplay;
             tractorPreview.GetComponent<UnityEngine.UI.Image>().color=preparation.TractorSelected ? new Color(.95f,.75f,.15f) : new Color(.4f,.38f,.25f);
             implementPreview.SetActive(preparation.ImplementSelected);
-            maintenanceDetails.text=$"TR-01\nCombustível: {operation.Fuel:F1} / 100 L\nDesgaste acumulado: {operation.Wear:F1}%\n\nServiços gratuitos no protótipo.";
+            maintenanceDetails.text=$"Saldo: {GarageEconomy.Money(saves.BalanceCents)}\nCombustível: {operation.Fuel:F1} / 100 L\nDesgaste: {operation.Wear:F1}%\nPreços: {GarageEconomy.Money(GarageEconomy.FuelPriceCents)}/L\nReparo: {GarageEconomy.Money(GarageEconomy.WearPointPriceCents)}/ponto de desgaste";
             garageMessage.text=!preparation.TractorSelected ? "Selecione o TR-01 para preparar ou fazer manutenção." : !operation.CanOperate ? "Abasteça ou repare antes de sair. Reserva mínima: 22,5 L." : !preparation.ImplementSelected ? "Acople a grade aradora para liberar a saída." : "Equipamento pronto · preparo do solo no talhão 01.";
             equipmentDetails.text = preparation.TractorSelected
                 ? $"{(tractorData != null ? tractorData.displayName : "Trator TR-01")}\nTanque: {(tractorData != null ? tractorData.fuelCapacityLiters : 100f):F0} L · disponível: {operation.Fuel:F0} L\nDesgaste: {operation.Wear:F1}%\nGrade aradora · preparo do solo\nDados ilustrativos do protótipo"
@@ -223,13 +232,26 @@ namespace AgroSim.UI
         {
             if(manager.CurrentState!=GameState.Garage || !preparation.TractorSelected) return;
             if(saveFailed) return;
-            operation.Refuel(); saveFailed=!saves.SaveCheckpoint(operation.Fuel,operation.Wear); UpdateSelection();
+            PurchaseService(true);
         }
         private void Repair()
         {
             if(manager.CurrentState!=GameState.Garage || !preparation.TractorSelected) return;
             if(saveFailed) return;
-            operation.Repair(); saveFailed=!saves.SaveCheckpoint(operation.Fuel,operation.Wear); UpdateSelection();
+            PurchaseService(false);
+        }
+        private void PurchaseService(bool refuel)
+        {
+            long cost=refuel ? saves.RefuelCostCents : saves.RepairCostCents;
+            string id=System.Guid.NewGuid().ToString("N");
+            bool bought=refuel ? saves.BuyRefuel(id) : saves.BuyRepair(id);
+            if(bought)
+            {
+                operation.RestoreMachine(saves.Fuel,saves.Wear);
+                serviceMessage=(refuel ? "Abastecimento" : "Reparo")+" confirmado · "+GarageEconomy.Money(cost)+".";
+            }
+            else { serviceMessage=saves.LastError; saveFailed=saves.BalanceCents>=cost; }
+            UpdateSelection();
         }
         private void RetrySave()
         {
@@ -244,13 +266,14 @@ namespace AgroSim.UI
                 saveFailed=!saves.RecoverAttempt();
                 if(!saveFailed) saveFailed=!saves.SaveCheckpoint(operation.Fuel,operation.Wear);
             }
+            if(!saveFailed) serviceMessage=null;
             UpdateSelection();
         }
         private void NewGame()
         {
             if(manager.CurrentState!=GameState.Garage) return;
             saveFailed=!saves.NewGame();
-            if(!saveFailed) { operation.RestoreMachine(saves.Fuel,saves.Wear); newGamePanel.SetActive(false); ReturnHome(); }
+            if(!saveFailed) { serviceMessage=null; operation.RestoreMachine(saves.Fuel,saves.Wear); newGamePanel.SetActive(false); ReturnHome(); }
             UpdateSelection();
         }
         private bool FollowRoute()

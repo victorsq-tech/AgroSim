@@ -28,8 +28,10 @@ resultado e volte ao galpão para repetir o ciclo.
   confirmado no galpão e identifica tentativas interrompidas. Aprovada pelo usuário.
   O galpão exibe data e hora do último checkpoint no horário local.
 - UI é criada em execução e usa a fonte padrão do Unity.
-- Sem MQTT, economia, múltiplos dias ou safra completa.
+- Economia inicial implementada na etapa 04, aguardando aprovação funcional:
+  saldo salvo e serviços cobrados, sem receita de colheita.
+- Sem MQTT, múltiplos dias ou safra completa.
 
-As etapas 02 e 03 foram aprovadas pelo usuário. A etapa 04 proposta adiciona
-saldo e custos de abastecimento/manutenção; veja Etapa-04-proposta-economia.md.
+As etapas 02 e 03 foram aprovadas pelo usuário. A etapa 04 adiciona
+saldo e custos de abastecimento/manutenção; veja Etapa-04-economia.md.
 A progressão dos dias e os parâmetros configuráveis continuam pendentes.
