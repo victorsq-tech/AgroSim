@@ -59,7 +59,7 @@ namespace AgroSim.UI
         public FarmScreen CurrentScreen => menus?.Current ?? FarmScreen.Garage;
         private readonly Vector3 home = new Vector3(-5f, -1f, 0f);
 
-        private void OnDestroy() { travelView?.Dispose(); }
+        private void OnDestroy() { travelView?.Dispose(); menus?.Dispose(); garageLayout?.Dispose(); }
         private void Awake()
         {
             operation = gameObject.AddComponent<PlaceholderOperation>();
@@ -79,26 +79,33 @@ namespace AgroSim.UI
             var legend=Panel(canvas.transform,"FieldLegend",new Vector2(.02f,.005f),new Vector2(.98f,.06f));
             fieldLegend=Label(legend.transform,"",18,new Vector2(.03f,.08f),new Vector2(.97f,.92f));
             garage = Panel(canvas.transform, "GarageScreen", Vector2.zero, Vector2.one);
-            garage.GetComponent<UnityEngine.UI.Image>().color = new Color(.075f,.1f,.12f,1f);
+            garage.GetComponent<UnityEngine.UI.Image>().color = FarmTheme.Background;
             Label(garage.transform,"AGROSIM  /  GALPÃO",32,new Vector2(.05f,.87f),new Vector2(.8f,.96f));
             garageSubtitle=Label(garage.transform,"",20,new Vector2(.05f,.79f),new Vector2(.76f,.835f));
             garageLayout=new GarageLayout(garage.transform,font,SelectTractor,ChooseImplement);
             tractorLabel=garageLayout.TractorLabel;
             var footer=Panel(garage.transform,"GarageFooter",new Vector2(.04f,.02f),new Vector2(.96f,.25f));
+            FarmTheme.Border(footer,FarmTheme.Line);
+            Panel(footer.transform,"EquipmentDivider",new Vector2(.475f,.45f),new Vector2(.476f,.94f)).GetComponent<UnityEngine.UI.Image>().color=FarmTheme.Line;
             equipmentDetails=Label(footer.transform,"",19,new Vector2(.02f,.44f),new Vector2(.47f,.96f));
             equipmentDetails.resizeTextForBestFit=true; equipmentDetails.resizeTextMinSize=15; equipmentDetails.resizeTextMaxSize=19;
             maintenanceDetails=Label(footer.transform,"",18,new Vector2(.49f,.44f),new Vector2(.72f,.96f));
             maintenanceDetails.resizeTextForBestFit=true; maintenanceDetails.resizeTextMinSize=15; maintenanceDetails.resizeTextMaxSize=18;
             garageMessage=Label(footer.transform,"",18,new Vector2(.02f,.03f),new Vector2(.72f,.38f));
+            garageMessage.resizeTextForBestFit=true; garageMessage.resizeTextMinSize=12; garageMessage.resizeTextMaxSize=18;
             var startLabel=Button(footer.transform,"Sair para o talhão",.05f,StartOperation);
             Rect(startLabel.transform.parent.GetComponent<RectTransform>(),new Vector2(.75f,.1f),new Vector2(.98f,.9f));
             startButton=startLabel.transform.parent.GetComponent<UnityEngine.UI.Button>();
             eventPanel = Panel(canvas.transform, "AgriculturalEvent", new Vector2(.32f,.24f), new Vector2(.78f,.67f));
-            eventText=Label(eventPanel.transform, "", 23, new Vector2(.06f,.59f), new Vector2(.94f,.94f));
+            FarmTheme.Border(eventPanel,FarmTheme.Accent);
+            Label(eventPanel.transform,"DECISÃO NO TALHÃO",14,new Vector2(.06f,.89f),new Vector2(.94f,.97f)).color=FarmTheme.Accent;
+            eventText=Label(eventPanel.transform, "", 23, new Vector2(.06f,.56f), new Vector2(.94f,.88f));
+            eventText.resizeTextForBestFit=true; eventText.resizeTextMinSize=14; eventText.resizeTextMaxSize=23;
             Button(eventPanel.transform, "Ajustar velocidade · +3 L", .34f, () => Decide(true));
             Button(eventPanel.transform, "Continuar · -15% produtividade", .11f, () => Decide(false));
             eventPanel.SetActive(false);
             resultPanel = Panel(canvas.transform, "Result", new Vector2(.3f,.2f), new Vector2(.8f,.7f));
+            FarmTheme.Border(resultPanel,FarmTheme.Accent);
             result = Label(resultPanel.transform, "", 23, new Vector2(.07f,.35f), new Vector2(.93f,.94f));
             result.resizeTextForBestFit = true;
             result.resizeTextMinSize = 14;
@@ -120,7 +127,20 @@ namespace AgroSim.UI
             Button(confirmation.transform,"Cancelar",.32f,()=>newGamePanel.SetActive(false));
             Button(confirmation.transform,"Confirmar novo jogo",.09f,NewGame);
             newGamePanel.SetActive(false);
-            saves=new SaveGameStore(System.IO.Path.Combine(Application.persistentDataPath,"AgroSim"));
+            string saveDirectory=System.IO.Path.Combine(Application.persistentDataPath,"AgroSim");
+#if UNITY_EDITOR
+            // The Editor playtest menu routes both save and telemetry to an isolated directory.
+            string testDirectory=UnityEditor.SessionState.GetString("AgroSim.PlaytestSaveDirectory",string.Empty);
+            if(!string.IsNullOrEmpty(testDirectory))
+            {
+                saveDirectory=testDirectory;
+                var badge=Panel(canvas.transform,"IsolatedPlaytestBadge",new Vector2(.35f,.97f),new Vector2(.65f,1));
+                badge.GetComponent<UnityEngine.UI.Image>().color=FarmTheme.Accent;
+                var label=Label(badge.transform,"TESTE ISOLADO / SAVE DE TESTE",12,Vector2.zero,Vector2.one);
+                label.color=FarmTheme.Background; label.alignment=TextAnchor.MiddleCenter;
+            }
+#endif
+            saves=new SaveGameStore(saveDirectory);
             var field=GameObject.Find("Field01");
             if(field!=null) { fieldVisual=gameObject.AddComponent<FieldWorkVisual>(); fieldVisual.Initialize(field.GetComponent<SpriteRenderer>()); }
             travelView=new FarmTravelView(transform);
@@ -131,6 +151,9 @@ namespace AgroSim.UI
             ReturnHome();
             recovering=false;
             menus=new FarmMenus(canvas.transform,garage,font,this);
+#if UNITY_EDITOR
+            canvas.transform.Find("IsolatedPlaytestBadge")?.SetAsLastSibling();
+#endif
         }
 
         public void ShowNewGameConfirmation()
@@ -402,7 +425,7 @@ namespace AgroSim.UI
             var go = new GameObject(name, typeof(RectTransform), typeof(UnityEngine.UI.Image));
             go.transform.SetParent(parent,false);
             Rect(go.GetComponent<RectTransform>(),min,max);
-            go.GetComponent<UnityEngine.UI.Image>().color = new Color(.055f,.09f,.075f,.96f);
+            go.GetComponent<UnityEngine.UI.Image>().color = new Color(FarmTheme.Card.r,FarmTheme.Card.g,FarmTheme.Card.b,.98f);
             return go;
         }
         private UnityEngine.UI.Text Label(Transform parent,string text,int size,Vector2 min,Vector2 max)
@@ -410,7 +433,7 @@ namespace AgroSim.UI
             var go = new GameObject("Label",typeof(RectTransform),typeof(UnityEngine.UI.Text));
             go.transform.SetParent(parent,false); Rect(go.GetComponent<RectTransform>(),min,max);
             var label = go.GetComponent<UnityEngine.UI.Text>();
-            label.font = font; label.text = text; label.fontSize = size; label.color = Color.white;
+            label.font = font; label.text = text; label.fontSize = size; label.color = FarmTheme.Ink;
             label.raycastTarget = false; label.alignment = TextAnchor.MiddleLeft;
             return label;
         }
@@ -418,7 +441,7 @@ namespace AgroSim.UI
         {
             var go = Panel(parent,"Button",new Vector2(.06f,y),new Vector2(.94f,y+.17f));
             go.GetComponent<UnityEngine.UI.Image>().color = new Color(.25f,.43f,.22f);
-            go.AddComponent<UnityEngine.UI.Button>().onClick.AddListener(action);
+            var button=go.AddComponent<UnityEngine.UI.Button>(); button.onClick.AddListener(action); FarmTheme.StyleButton(button);
             var label = Label(go.transform,text,20,new Vector2(.04f,0),new Vector2(.96f,1));
             label.alignment = TextAnchor.MiddleCenter;
             return label;

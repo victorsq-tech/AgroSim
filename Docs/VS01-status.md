@@ -1,4 +1,6 @@
-# AgroSim — VS01 com placeholders
+# AgroSim — histórico da fundação VS01
+
+Este documento registra a versão inicial e seus limites na época. Para o estado atual, consulte README.md na raiz, Guia-das-pastas.md e Etapa-09-acabamento-mvp.md. O MVP atual já inclui cinco operações, menus, mapa, quatro vagas, depósito com manobra, oficina, abastecimento, economia com serviços gratuitos, save persistente e ambiente Cozy Farm. A avaliação funcional do acabamento da etapa 09 fica para o final da rodada.
 
 Abra Assets/AgroSim/Scenes/Gameplay.unity e pressione Play.
 Selecione TR-01, acople a grade e inicie o preparo do solo.

@@ -8,6 +8,7 @@ namespace AgroSim.UI
         private readonly GameObject roadRoot;
         private readonly GameObject fieldTrees;
         private readonly CozyFarmEnvironmentSettings art;
+        private readonly FarmArtwork artwork=new FarmArtwork();
         private Sprite tiledGrass;
         private readonly SpriteRenderer ground,field;
         private bool onRoad,preview;
@@ -27,7 +28,26 @@ namespace AgroSim.UI
             Block(sprite,"RoadVerge",new Vector3(30,0),new Vector2(14,8),new Color(.3f,.43f,.23f),-10);
             Block(sprite,"AccessRoad",new Vector3(30,-.4f),new Vector2(12,1.8f),new Color(.64f,.53f,.36f),-5);
             Block(sprite,"GarageDestination",new Vector3(24,1),new Vector2(1.5f,2.4f),new Color(.4f,.43f,.39f),-4);
-            Block(sprite,"FieldEntrance",new Vector3(36,1),new Vector2(1.5f,2.4f),new Color(.37f,.25f,.13f),-4);
+            Block(sprite,"FieldEntrance",new Vector3(36,1.4f),new Vector2(1.5f,1.2f),new Color(.37f,.25f,.13f),-4);
+            for(int i=0;i<4;i++) Block(sprite,"EntranceFurrow"+i,new Vector3(36,1+i*.25f),new Vector2(1.3f,.045f),new Color(.22f,.13f,.075f),-3);
+            if(art?.road!=null)
+            {
+                var road=roadRoot.transform.Find("AccessRoad").GetComponent<SpriteRenderer>();
+                road.sprite=artwork.TileSprite(art.road); road.color=Color.white;
+                road.drawMode=SpriteDrawMode.Tiled; road.size=new Vector2(12,1.8f);
+            }
+            var house=artwork.House(0);
+            if(house!=null)
+            {
+                var building=roadRoot.transform.Find("GarageDestination").GetComponent<SpriteRenderer>();
+                building.sprite=house; building.color=Color.white; building.drawMode=SpriteDrawMode.Simple;
+                building.transform.position=new Vector3(24,1.3f,0);
+                var bounds=house.bounds.size;
+                building.transform.localScale=Vector3.one*Mathf.Min(2f/bounds.x,1.65f/bounds.y);
+            }
+            for(int i=0;i<4;i++) Block(sprite,"RoadEdgeMarker"+i,new Vector3(25.5f+i*3,.65f),new Vector2(.055f,.22f),FarmTheme.Ink,-1);
+            Block(sprite,"FieldGatePost",new Vector3(35.75f,.7f),new Vector2(.12f,.4f),new Color(.4f,.28f,.16f),-1);
+            Block(sprite,"FieldGatePostLower",new Vector3(35.75f,-1.5f),new Vector2(.12f,.4f),new Color(.4f,.28f,.16f),-1);
             fieldTrees=new GameObject("CozyFarmFieldTrees"); fieldTrees.transform.SetParent(parent,false);
             if(art!=null && art.grass!=null && art.trees!=null && art.trees.Length>0)
             {
@@ -64,13 +84,13 @@ namespace AgroSim.UI
             tree.transform.localScale=Vector3.one*Mathf.Min(1.3f/Mathf.Max(.01f,size.y),1.1f/Mathf.Max(.01f,size.x));
             if(renderer!=null) { renderer.color=Color.white; renderer.sortingOrder=-2; }
         }
-        public void Dispose() { if(tiledGrass!=null) Object.Destroy(tiledGrass); }
+        public void Dispose() { if(tiledGrass!=null) Object.Destroy(tiledGrass); artwork.Dispose(); }
         void Block(Sprite sprite,string name,Vector3 position,Vector2 size,Color color,int order)
         {
             var go=new GameObject(name); go.transform.SetParent(roadRoot.transform,false); go.transform.position=position;
             var r=go.AddComponent<SpriteRenderer>(); r.sprite=sprite; r.drawMode=SpriteDrawMode.Sliced; r.size=size; r.color=color; r.sortingOrder=order;
         }
-        public void ShowRoad() { onRoad=true; preview=false; roadRoot.SetActive(true); fieldTrees.SetActive(false); if(ground!=null) ground.enabled=false; if(field!=null) field.enabled=false; Frame(new Vector3(30,0,-10),6.4f,3f,1); }
+        public void ShowRoad() { onRoad=true; preview=false; roadRoot.SetActive(true); fieldTrees.SetActive(false); if(ground!=null) ground.enabled=false; if(field!=null) field.enabled=false; Frame(new Vector3(30,0,-10),7.2f,3f,1); }
         public void ShowField(bool preview=false) { onRoad=false; this.preview=preview; roadRoot.SetActive(false); fieldTrees.SetActive(true); if(ground!=null) ground.enabled=true; if(field!=null) field.enabled=true; Frame(new Vector3(3,0,-10),10f,3.25f,preview ? .825f : 1); }
         public void RefreshFrame() { if(width==Screen.width && height==Screen.height) return; if(onRoad) ShowRoad(); else ShowField(preview); }
         public static Vector2 CalculateFrame(float aspect,float horizontal,float vertical,float bottom,float top)

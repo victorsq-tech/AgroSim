@@ -10,20 +10,28 @@ Protótipo acadêmico de simulação de operações agrícolas em Unity 2D e C#.
 4. Aguarde a restauração dos pacotes e a importação dos assets.
 5. Abra `Assets/AgroSim/Scenes/Gameplay.unity` e pressione **Play**.
 
-## Primeiro Vertical Slice
+## MVP atual
 
-Galpão → selecionar TR-01 → acoplar grade → deslocar ao talhão → preparar
-o solo → decidir sobre solo compactado → consultar resultado → voltar ao galpão.
+Menu inicial → mapa da fazenda → galpão → selecionar TR-01 e implemento →
+acoplar e aguardar na porta → estrada → operação no talhão → decisão →
+resultado → estrada de volta → confirmação e equipamentos guardados.
 
-Inclui placeholders para fazenda, trator e implemento; combustível,
-desgaste e produtividade simulados; telemetria e resultado locais em JSONL.
-Inclui uma tela exclusiva do galpão, abastecimento, reparo e deslocamento
-pela estrada. Combustível e desgaste se mantêm entre operações na mesma
-sessão. Os parâmetros são ilustrativos. Não inclui MQTT, economia nem
-safra completa.
+Cinco operações: preparo do solo, plantio, fertilização, pulverização e
+colheita. O terreno muda conforme as passadas do trator e a etapa confirmada.
+O galpão possui quatro vagas, com TR-01 na primeira e três vazias, além do
+depósito de implementos. Oficina e abastecimento são acessíveis pelo mapa.
 
-O histórico local fica em `Application.persistentDataPath/AgroSim` e não
-é enviado ao GitHub. Ele não restaura o estado do jogo.
+Combustível, desgaste, produtividade, saldo e próxima operação ficam no
+save local. Serviços têm preço zero nesta fase do protótipo. Ao interromper
+uma operação, o jogo volta ao último checkpoint confirmado e registra a
+tentativa separadamente. Save e histórico JSONL ficam em
+`Application.persistentDataPath/AgroSim` e não são enviados ao GitHub.
+
+Cozy Farm, selecionado e importado pelo usuário, fornece grama, terra,
+pisos, árvores e casas. Tratores e implementos usam placeholders locais.
+Créditos e usos estão em [Docs/Assets-de-terceiros.md](Docs/Assets-de-terceiros.md).
+Os parâmetros agrícolas são ilustrativos. MQTT e safra de vários dias
+continuam pendentes.
 
 ## Organização
 
@@ -31,14 +39,22 @@ O histórico local fica em `Application.persistentDataPath/AgroSim` e não
 - `Assets/AgroSim/Scenes`: cena Gameplay e cópia da fundação inicial.
 - `Assets/AgroSim/Prefabs`: placeholders de trator e implemento.
 - `Assets/AgroSim/Data`: espaço para dados configuráveis.
-- `Docs/VS01-status.md`: estado e limites do protótipo.
+- `Docs/VS01-status.md`: histórico da fundação inicial.
+- `Docs/Etapa-09-acabamento-mvp.md`: escopo e conferências da etapa visual atual.
+- `Docs/Guia-das-pastas.md`: localização das telas, arte, configurações e save.
+- `Assets/Skyden_Games/Cozy Farm`: pacote original preservado.
 
 ## Validação
 
 No Editor, use **AgroSim → Validar ciclo VS01** para verificar a pausa do
 evento, as duas consequências, a conclusão e o reinício. Teste também o
-ciclo pela interface em Play. A versão inicial teve o ciclo completo e
-o arquivo local conferidos no PC de Casa.
+ciclo pela interface em Play. Os demais comandos AgroSim validam menus,
+manobras, manutenção, economia, save, telemetria, enquadramento e progressão.
+
+Para testar sem alterar seu progresso, use **AgroSim → Testes → Play com
+save isolado**. **Retomar último save de teste** permite conferir recuperação
+e persistência. Ao sair de Play, a seleção de teste é desativada; Play normal
+usa o save original.
 
 ## Versionamento
 

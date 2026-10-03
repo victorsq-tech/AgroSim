@@ -5,6 +5,9 @@ namespace AgroSim.UI
     public sealed class CozyFarmEnvironmentSettings : ScriptableObject
     {
         public Sprite grass;
+        public Sprite road;
+        public Sprite floor;
         public GameObject[] trees;
+        public GameObject[] buildings;
     }
 }

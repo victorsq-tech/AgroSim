@@ -26,6 +26,17 @@ namespace AgroSim.Editor
                 settings=ScriptableObject.CreateInstance<CozyFarmEnvironmentSettings>(); settings.grass=grass; settings.trees=trees;
                 AssetDatabase.CreateAsset(settings,SettingsPath); AssetDatabase.SaveAssets();
             }
+            // Fill new optional references only; preserve any existing user choices.
+            bool changed=false;
+            var tiles=AssetDatabase.LoadAllAssetsAtPath(Package+"/Textures/Ground Tiles.png").OfType<Sprite>().ToArray();
+            if(settings.road==null) { settings.road=tiles.FirstOrDefault(s=>s.name=="Ground Tiles_26"); changed|=settings.road!=null; }
+            if(settings.floor==null) { settings.floor=tiles.FirstOrDefault(s=>s.name=="Ground Tiles_11"); changed|=settings.floor!=null; }
+            if(settings.buildings==null || settings.buildings.Length==0)
+            {
+                settings.buildings=Enumerable.Range(0,3).Select(i=>AssetDatabase.LoadAssetAtPath<GameObject>(Package+"/Prefabs/Props/House_"+i+".prefab")).ToArray();
+                changed=true;
+            }
+            if(changed) { EditorUtility.SetDirty(settings); AssetDatabase.SaveAssets(); }
             if(settings.grass!=null && settings.trees!=null && settings.trees.Length==5 && settings.trees.All(t=>t!=null))
                 Debug.Log("AgroSim Cozy Farm references ready: grass and five tree prefabs. Source assets preserved.");
         }

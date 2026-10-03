@@ -13,9 +13,15 @@ MonoBehaviour:
   m_Name: CozyFarmEnvironment
   m_EditorClassIdentifier: Assembly-CSharp::AgroSim.UI.CozyFarmEnvironmentSettings
   grass: {fileID: -2032889951, guid: 9507db848132f1d43b659e6482620ed7, type: 3}
+  road: {fileID: 518084715, guid: 9507db848132f1d43b659e6482620ed7, type: 3}
+  floor: {fileID: 84843758, guid: 9507db848132f1d43b659e6482620ed7, type: 3}
   trees:
   - {fileID: 6546730991220994830, guid: b9213b90abbfe284ba4ffffdaf709899, type: 3}
   - {fileID: 5080491302493382329, guid: 8d52b740d795ef742b81aae8290b74fd, type: 3}
   - {fileID: 8246304811670395549, guid: 6dbd4cda3886a50449782517bb9a57fb, type: 3}
   - {fileID: 3425455706327214019, guid: 19ac334bb5d49684b930525e71b2681b, type: 3}
   - {fileID: 1806103860979535517, guid: 78ac74e11b780034899fd9451ae6bb4d, type: 3}
+  buildings:
+  - {fileID: 2761164568218690400, guid: 0f2d3f88984e2d543a4c771b32e9019c, type: 3}
+  - {fileID: 2776981513250021368, guid: 42a9a629dd2b9a24c88a2160757aa075, type: 3}
+  - {fileID: 4036446261405764145, guid: 8f2220a0470889d4c835737616b3b192, type: 3}
