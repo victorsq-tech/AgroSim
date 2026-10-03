@@ -47,6 +47,17 @@ namespace AgroSim.UI
         private UnityEngine.UI.Text saveDate;
         private GameObject newGamePanel;
         private bool saveFailed, recovering;
+        private FarmMenus menus;
+        public bool AtHome => manager!=null && manager.CurrentState==GameState.Garage;
+        public int NextOperationIndex => saves.NextOperationIndex;
+        public float Fuel => operation.Fuel;
+        public float Wear => operation.Wear;
+        public float Productivity => saves.Productivity;
+        public long BalanceCents => saves.BalanceCents;
+        public string LastSaveDisplay => saves.LastSaveDisplay;
+        public bool CanUseServices => AtHome && !saveFailed;
+        public string HomeMessage => saveFailed ? (saves.LastError ?? "Save pendente. Tente salvar novamente.") : serviceMessage ?? saves.LoadMessage ?? "Progresso salvo neste PC.";
+        public FarmScreen CurrentScreen => menus?.Current ?? FarmScreen.Garage;
         private readonly Vector3 home = new Vector3(-5f, -1f, 0f);
 
         private void Awake()
@@ -118,7 +129,7 @@ namespace AgroSim.UI
             saveMessage=Label(garage.transform,"",15,new Vector2(.05f,.755f),new Vector2(.76f,.79f));
             saveDate=Label(garage.transform,"",18,new Vector2(.05f,.835f),new Vector2(.76f,.875f));
             var saveTools=Panel(garage.transform,"SaveTools",new Vector2(.79f,.8f),new Vector2(.96f,.96f));
-            var newGameLabel=Button(saveTools.transform,"Novo jogo",.55f,()=>newGamePanel.SetActive(true));
+            var newGameLabel=Button(saveTools.transform,"Novo jogo",.55f,ShowNewGameConfirmation);
             Rect(newGameLabel.transform.parent.GetComponent<RectTransform>(),new Vector2(.06f,.52f),new Vector2(.94f,.94f));
             newGameLabel.fontSize=18;
             var retryLabel=Button(saveTools.transform,"Tentar salvar",.15f,RetrySave);
@@ -139,11 +150,25 @@ namespace AgroSim.UI
             operation.RestoreMachine(saves.Fuel,saves.Wear);
             ReturnHome();
             recovering=false;
+            menus=new FarmMenus(canvas.transform,garage,font,this);
         }
+
+        public void ShowNewGameConfirmation()
+        {
+            if(!AtHome) return;
+            newGamePanel.transform.SetAsLastSibling(); newGamePanel.SetActive(true);
+        }
+        public void UseHomeService(bool refuel)
+        {
+            if(!CanUseServices) return;
+            if(!preparation.TractorSelected) preparation.ToggleTractor();
+            if(refuel) Refuel(); else Repair();
+        }
+        public void RetryHomeSave() { RetrySave(); }
 
         private void StartOperation()
         {
-            if (saveFailed || saves.NextOperationIndex>=OperationCatalog.Count || !preparation.CanStart || !operation.CanOperate || manager.CurrentState != GameState.Garage) return;
+            if (CurrentScreen!=FarmScreen.Garage || saveFailed || saves.NextOperationIndex>=OperationCatalog.Count || !preparation.CanStart || !operation.CanOperate || manager.CurrentState != GameState.Garage) return;
             string id=saves.BeginAttempt();
             if(id==null) { saveFailed=true; UpdateSelection(); return; }
             serviceMessage=null;
@@ -155,6 +180,7 @@ namespace AgroSim.UI
             log.SetOperation(saves.NextOperationIndex,definition.Id,definition.Implement);
             sampleTimer = 0f; Record("started");
             manager.ChangeState(GameState.Traveling);
+            menus?.BeginOperation();
             garage.SetActive(false);
         }
 
@@ -223,6 +249,7 @@ namespace AgroSim.UI
             garage.SetActive(true); resultPanel.SetActive(false); eventPanel.SetActive(false);
             preparation.Reset();
             ConfigureCheckpoint(); UpdateSelection();
+            menus?.ReturnToGarage();
         }
         private bool ConfirmOutcome()
         {
@@ -300,6 +327,7 @@ namespace AgroSim.UI
                 ? $"{(tractorData != null ? tractorData.displayName : "Trator TR-01")}\nTanque: {(tractorData != null ? tractorData.fuelCapacityLiters : 100f):F0} L · disponível: {operation.Fuel:F0} L\nDesgaste: {operation.Wear:F1}%\n{definition.Implement} · {definition.Name}\nProdutividade confirmada: {saves.Productivity:F0}%"
                 : "Selecione o trator para ver os dados.\nDepois, acople o implemento indicado.\nO início requer os dois equipamentos.";
             UpdateStatus();
+            menus?.Refresh();
         }
         private void Refuel()
         {
@@ -346,7 +374,7 @@ namespace AgroSim.UI
         {
             if(manager.CurrentState!=GameState.Garage) return;
             saveFailed=!saves.NewGame();
-            if(!saveFailed) { serviceMessage=null; operation.RestoreMachine(saves.Fuel,saves.Wear); newGamePanel.SetActive(false); ReturnHome(); }
+            if(!saveFailed) { serviceMessage=null; operation.RestoreMachine(saves.Fuel,saves.Wear); newGamePanel.SetActive(false); ReturnHome(); menus?.NewGameStarted(); }
             UpdateSelection();
         }
         private bool FollowRoute()
