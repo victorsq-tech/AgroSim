@@ -1,13 +1,17 @@
 # Assets visuais de terceiros
 
-## Cozy Farm
+## Cozy Farm — uso histórico como placeholder
 
-Em 03/10/2026, o usuário selecionou e importou o asset **Cozy Farm** para o AgroSim.
+O pacote **Cozy Farm** foi importado em 03/10/2026 e utilizado como placeholder visual nas etapas iniciais do AgroSim. Posteriormente, foi removido do projeto, conforme esclarecimento do desenvolvedor em 28/10/2026.
 
-- Pasta do pacote no projeto: `Assets/Skyden_Games/Cozy Farm`.
-- Referência local do fornecedor: `ReadMe.txt` nessa pasta.
-- Conteúdo usado nas etapas 08 e 09: grama, terra e pedra de `Textures/Ground Tiles.png`; árvores de `Prefabs/Props/Tree_0.prefab` a `Tree_3.prefab`; casas de `House_0.prefab` e `House_1.prefab`.
-- Aplicação: grama do entorno do talhão, estrada e mapa; árvores nas bordas; casas representando galpão e oficina no mapa; casa na origem da estrada; textura de terra nas vias e pedra nos pisos do galpão e dos serviços.
-- Situação: pacote importado pelo usuário e integrado ao entorno do talhão e da estrada. A variante Tree_4 (toco) permanece no pacote original; a decoração utiliza árvores de copa Tree_0 a Tree_3.
+Durante as etapas 08 e 09, foram utilizados:
 
-O pacote original foi preservado. A compra, origem externa e modalidade de licença não foram informadas neste registro; não se atribui licença por inferência a partir do ReadMe.
+- Grama, terra e pedra de `Textures/Ground Tiles.png`.
+- Árvores de `Prefabs/Props/Tree_0.prefab` a `Tree_3.prefab`.
+- Casas de `House_0.prefab` e `House_1.prefab`, representando galpão, oficina e a origem da estrada.
+
+A antiga pasta era `Assets/Skyden_Games/Cozy Farm`. Essas referências documentam o uso histórico do pacote; ele não integra a cópia atual do projeto.
+
+## Observação técnica da revisão — 28/10/2026
+
+O Editor emitiu aviso de referências antigas indisponíveis para grama/árvores do Cozy Farm. O teste nativo da safra na cena MetricMapIntegration passou com a arte atual. A remoção do pacote foi intencional, após seu uso como placeholder inicial.
